@@ -3,6 +3,7 @@ from qiskit import (QuantumCircuit,
                     QuantumRegister,
                     AncillaRegister,
                     ClassicalRegister)
+from qiskit.circuit import CircuitInstruction, Instruction, AncillaQubit
 
 
 class Synthesizer(ABC):
@@ -18,51 +19,182 @@ class ShorSynthesizer(Synthesizer):
     def __init__(self):
         pass
 
-    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
-        # TODO: Explore idea of using one register / logical qubit
+    def _encode_logical_qubit(
+            self,
+            circuit: QuantumCircuit,
+            register: QuantumRegister
+    ):
 
-        # TODO: Allow handling circuits with multiple quantum,
-        # classical, as well as ancilla qubit registers
-        n_qubits = circuit.num_qubits
+        # Encode outer-layer of bit-flip protection
+        for i in range(1, 3):
+            circuit.cx(register[0], register[i * 3])
 
-        # Initialize target circuit
-        q_data = QuantumRegister(n_qubits * 9, 'q_data')
-        q_anc = AncillaRegister(2, 'q_anc')
-        c_data = ClassicalRegister(n_qubits, 'c_data')
-        c_anc = ClassicalRegister(2, 'c_anc')
+        # Encode inner-layer of phase-flip protection
+        for i in range(3):
 
-        qc = QuantumCircuit(q_data, q_anc, c_data, c_anc)
+            circuit.h(register[3*i])
+            for j in range(1, 3):
+                circuit.cx(register[3*i], register[3*i + j])
 
-        # TODO: Initialize qubits properly
-        initial_state = 0
-        qc.initialize(
-            initial_state,
-            qubits=[q_data[i * 9] for i in range(n_qubits)],
-            normalize=False
+        return
+
+    def _encode_gate_transversal(
+            self,
+            circuit: QuantumCircuit,
+            gate: CircuitInstruction
+    ):
+
+        # Apply operation to all encoded qubits
+        for i in range(9):
+            circuit.append(
+                gate.operation,
+                map(lambda x: x._index * 9 + i, gate.qubits)
+            )
+
+        return
+
+    def _encode_error_correction(
+            self,
+            circuit: QuantumCircuit,
+            q_register: QuantumRegister,
+            a_register: AncillaRegister,
+            c_register: ClassicalRegister
+    ):
+
+        # Correct bit-flips in each block
+        for b in range(3):
+
+            # Parity-checks (syndromes)
+            circuit.cx(q_register[b * 3 + 0], a_register[0])
+            circuit.cx(q_register[b * 3 + 1], a_register[0])
+            circuit.cx(q_register[b * 3 + 1], a_register[1])
+            circuit.cx(q_register[b * 3 + 2], a_register[1])
+
+            circuit.barrier(a_register)
+
+            # Measure syndromes
+            circuit.measure(a_register, c_register)
+
+            # Reset ancillary qubits
+            circuit.barrier(a_register)
+            circuit.reset(a_register)
+            circuit.barrier()
+
+            # TODO: Reset ancillary qubits to zero state
+            # with circuit.if_test((c_register[0], 1)):
+            #     circuit.x(a_register[0])
+            # with circuit.if_test((c_register[1], 1)):
+            #     circuit.x(a_register[1])
+
+            # Perform error-correction based on syndromes
+            with circuit.if_test((c_register, 1)):
+                # Error on 3rd qubit
+                circuit.x(q_register[b * 3 + 2])
+
+            with circuit.if_test((c_register, 2)):
+                # Error on 1st qubit
+                circuit.x(q_register[b * 3])
+
+            with circuit.if_test((c_register, 3)):
+                # Error on 2nd qubit
+                circuit.x(q_register[b * 3 + 1])
+
+            circuit.barrier()
+
+        # Measure syndromes for phase-flips
+        circuit.h(a_register)
+        circuit.barrier(a_register)
+        circuit.cx(
+            a_register[0],
+            (q_register[i] for i in range(6))
+        )
+        circuit.barrier(a_register)
+        circuit.cx(
+            a_register[1],
+            (q_register[i] for i in range(3, 9))
         )
 
-        # Initialize ancilla qubits
-        qc.initialize(0, q_anc)
+        circuit.barrier(a_register)
+        circuit.h(a_register)
+        circuit.barrier(a_register)
 
-        # Synthesize each gate
+        # Measure syndromes
+        circuit.measure(a_register, c_register)
+
+        # Reset ancillary qubits
+        circuit.barrier(a_register)
+        circuit.reset(a_register)
+        circuit.barrier()
+
+        # Apply error-correction
+        with circuit.if_test((c_register, 1)):
+            # 1st and 2nd parity equal
+            # 2nd and 3rd parity differ
+            circuit.z(q_register[0])
+        with circuit.if_test((c_register, 2)):
+            # 1st and 2nd parity differ
+            # 2nd and 3rd parity equal
+            circuit.z(q_register[3])
+        with circuit.if_test((c_register, 3)):
+            # 1st and 2nd parity differ
+            # 2nd and 3rd parity differ
+            circuit.z(q_register[6])
+
+        return
+
+    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
+
+        # Resulting circuit
+        qc = QuantumCircuit()
+
+        # Encode logical qubits of source circuit as quantum registers
+        for log in range(circuit.num_qubits):
+            qc.add_register(QuantumRegister(9, f'q_log{log}'))
+
+        # Add ancillary and classical registers
+        qc.add_register(AncillaRegister(2, "q_anc"))
+        qc.add_register(ClassicalRegister(2, "c_anc"))
+        qc.add_register(ClassicalRegister(9, "c_data"))
+
+        # TODO: Initialize all qubits
+        # Initialize ancillary qubits
+        # qc.initialize(0, qc.ancillas)
+
+        # Encode all logical qubits
+        for log in range(circuit.num_qubits):
+            self._encode_logical_qubit(qc, qc.qregs[log])
+
+        # NOTE: Adding a barrier for readability
+        qc.barrier()
+
+        # Encode all gates
         for ins in circuit.data:
-            match (ins.name):
-                case 'h':
-                    for i in range(9):
-                        qc.h(ins.qubits[0]._index*9 + i)
-                case 'x':
-                    for i in range(9):
-                        qc.x(ins.qubits[0]._index*9 + i)
-                case 's':
-                    for i in range(9):
-                        qc.s(ins.qubits[0]._index*9 + i)
-                case 'cx':
-                    for i in range(9):
-                        qc.cx(ins.qubits[0]._index*9 + i, ins.qubits[1]._index*9 + i)
-                case _:
-                    raise Exception(f'Non-clifford instruction: {ins}')
 
-            # Add barrier
+            # Encode supported gates
+            match(ins.name):
+
+                # Clifford-Gates can be encoded transversally in Shor-code
+                case 'x' | 'h' | 's' | 'cx':
+                    self._encode_gate_transversal(qc, ins)
+
+                # Other gates are currently unsupported
+                case _:
+                    print(qc)
+                    raise Exception(f'Unsupported instruction: {ins}')
+
+            # NOTE: Adding a barrier for readability
             qc.barrier()
+
+            # Encode error-correction on target qubit
+            self._encode_error_correction(
+                qc,
+                qc.qregs[ins.qubits[-1]._index],
+                qc.ancillas[0]._register,
+                qc.cregs[0]
+            )
+
+            # NOTE: Adding a barrier for readability
+            qc.barrier()
+            pass
 
         return qc

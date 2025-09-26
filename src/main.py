@@ -8,6 +8,10 @@ inc.x(0)
 inc.cx(0, 1)
 inc.h(0)
 
+# inc = QuantumCircuit(1)
+# inc.x(0)
+
+
 print("INPUT CIRCUIT:")
 print(inc)
 
