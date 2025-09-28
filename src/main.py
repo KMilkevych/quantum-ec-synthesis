@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 from code_synthesis.synthesizer import ShorSynthesizer
+from code_synthesis.simulator import GenericSimulator
 from qiskit import QuantumCircuit
 
-inc = QuantumCircuit(2)
+inc = QuantumCircuit(2, 1)
 inc.x(0)
 inc.cx(0, 1)
 inc.h(0)
+inc.measure(0, 0)
 
 # inc = QuantumCircuit(1)
 # inc.x(0)
@@ -21,4 +23,8 @@ ouc = synth.synthesize(inc)
 print("\nOUTPUT CIRCUIT:")
 print(ouc)
 
-ouc.draw(output='mpl').savefig('circuit.png')
+# ouc.draw(output='mpl').savefig('circuit.png')
+
+sim = GenericSimulator()
+re1 = sim.simulate(ouc)
+print(re1)

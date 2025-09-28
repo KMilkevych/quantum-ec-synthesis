@@ -14,6 +14,9 @@ from qiskit.circuit import (
 
 class Synthesizer(ABC):
 
+    # TODO:
+    # Add Pauli-string initialization of stabilizer codes
+
     @abstractmethod
     def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
         pass
@@ -57,6 +60,19 @@ class ShorSynthesizer(Synthesizer):
                 map(lambda x: x._index * 9 + i, gate.qubits)
             )
 
+        return
+
+    def _encode_measurement(
+            self,
+            circuit: QuantumCircuit,
+            measurement: CircuitInstruction
+    ):
+        # Measure from the logical register
+        circuit.append(
+            measurement.operation,
+            map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
+            map(lambda c: circuit.cregs[0][c._index], measurement.clbits)
+        )
         return
 
     def _encode_error_correction(
@@ -182,6 +198,10 @@ class ShorSynthesizer(Synthesizer):
                 # Clifford-Gates can be encoded transversally in Shor-code
                 case 'x' | 'h' | 's' | 'cx':
                     self._encode_gate_transversal(qc, ins)
+
+                # Measurements should be respected
+                case 'measure':
+                    self._encode_measurement(qc, ins)
 
                 # Other gates are currently unsupported
                 case _:
