@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
-from qiskit import (QuantumCircuit,
-                    QuantumRegister,
-                    AncillaRegister,
-                    ClassicalRegister)
-from qiskit.circuit import CircuitInstruction, Instruction, AncillaQubit
+from qiskit import (
+    QuantumCircuit,
+    QuantumRegister,
+    AncillaRegister,
+    ClassicalRegister
+)
+from qiskit.circuit import (
+    CircuitInstruction,
+    # Instruction,
+    # AncillaQubit
+)
 
 
 class Synthesizer(ABC):
@@ -152,9 +158,9 @@ class ShorSynthesizer(Synthesizer):
             qc.add_register(QuantumRegister(9, f'q_log{log}'))
 
         # Add ancillary and classical registers
-        qc.add_register(AncillaRegister(2, "q_anc"))
-        qc.add_register(ClassicalRegister(2, "c_anc"))
-        qc.add_register(ClassicalRegister(9, "c_data"))
+        qc.add_register(q_anc := AncillaRegister(2, "q_anc"))
+        qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
+        qc.add_register(c_dat := ClassicalRegister(circuit.num_qubits, "c_data"))
 
         # TODO: Initialize all qubits
         # Initialize ancillary qubits
@@ -185,16 +191,23 @@ class ShorSynthesizer(Synthesizer):
             # NOTE: Adding a barrier for readability
             qc.barrier()
 
-            # Encode error-correction on target qubit
-            self._encode_error_correction(
-                qc,
-                qc.qregs[ins.qubits[-1]._index],
-                qc.ancillas[0]._register,
-                qc.cregs[0]
-            )
+            # Encode error-correction on all affected qubits
+            for qb in ins.qubits:
+                self._encode_error_correction(
+                    qc,
+                    qc.qregs[qb._index],
+                    q_anc,
+                    c_anc
+                )
 
             # NOTE: Adding a barrier for readability
             qc.barrier()
-            pass
 
+        # Measure all non-ancillary qubits
+        qc.measure(
+            map(lambda reg: reg[0], qc.qregs[:-1]),
+            c_dat
+        )
+
+        # Return measured circuit
         return qc

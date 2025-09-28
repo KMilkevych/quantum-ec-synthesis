@@ -20,3 +20,5 @@ ouc = synth.synthesize(inc)
 
 print("\nOUTPUT CIRCUIT:")
 print(ouc)
+
+ouc.draw(output='mpl').savefig('circuit.png')
