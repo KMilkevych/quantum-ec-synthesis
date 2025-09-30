@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-
 from code_synthesis.synthesizer import ShorSynthesizer
 from code_synthesis.simulator import GenericSimulator, CliffordSimulator
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 
-N = 6
-inc = QuantumCircuit(QuantumRegister(N, 'q_dat'), ClassicalRegister(N, 'c_data'))
+N = 1
+inc = QuantumCircuit(
+    qreg := QuantumRegister(N, 'q_dat'),
+    creg := ClassicalRegister(N, 'c_dat')
+)
 for i in range(N):
     inc.h(i)
-inc.measure_all()
+# inc.measure_all(creg)
+inc.measure(qreg, creg)
 
 
 # inc = QuantumCircuit(2, 1)
@@ -28,11 +31,14 @@ synth = ShorSynthesizer()
 ouc = synth.synthesize(inc)
 
 print("\nOUTPUT CIRCUIT:")
-# print(ouc)
+print(ouc)
 
 # ouc.draw(output='mpl').savefig('circuit.png')
 
-sim = GenericSimulator()
-# sim = CliffordSimulator()
-re1 = sim.simulate(ouc)
+# sim = GenericSimulator()
+sim = CliffordSimulator()
+re1 = sim.simulate(ouc, creg, samples=100000, noisy=False)
 print(re1)
+
+re2 = sim.simulate(inc, creg, samples=100000, noisy=False)
+print(re2)
