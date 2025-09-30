@@ -71,7 +71,9 @@ class ShorSynthesizer(Synthesizer):
         circuit.append(
             measurement.operation,
             map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
-            map(lambda c: circuit.cregs[0][c._index], measurement.clbits)
+            # map(lambda c: circuit.cregs[c._index][0], measurement.clbits)
+            # measurement.clbits
+            map(lambda c: circuit.clbits[c._index], measurement.clbits)
         )
         return
 
@@ -173,10 +175,15 @@ class ShorSynthesizer(Synthesizer):
         for log in range(circuit.num_qubits):
             qc.add_register(QuantumRegister(9, f'q_log{log}'))
 
-        # Add ancillary and classical registers
+        # Add ancillary and classical registers for computation
         qc.add_register(q_anc := AncillaRegister(2, "q_anc"))
+
+        # Add classical registers for measurements
+        for creg in circuit.cregs:
+            qc.add_register(creg)
+
+        # Add classical registers for ancillary measurements
         qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
-        qc.add_register(c_dat := ClassicalRegister(circuit.num_qubits, "c_data"))
 
         # TODO: Initialize all qubits
         # Initialize ancillary qubits
@@ -202,10 +209,15 @@ class ShorSynthesizer(Synthesizer):
                 # Measurements should be respected
                 case 'measure':
                     self._encode_measurement(qc, ins)
+                    qc.barrier()
+                    continue
+
+                # Barriers are just ignored, as they are added anyway
+                case 'barrier':
+                    pass
 
                 # Other gates are currently unsupported
                 case _:
-                    print(qc)
                     raise Exception(f'Unsupported instruction: {ins}')
 
             # NOTE: Adding a barrier for readability
@@ -224,10 +236,10 @@ class ShorSynthesizer(Synthesizer):
             qc.barrier()
 
         # Measure all non-ancillary qubits
-        qc.measure(
-            map(lambda reg: reg[0], qc.qregs[:-1]),
-            c_dat
-        )
+        # qc.measure(
+        #     map(lambda reg: reg[0], qc.qregs[:-1]),
+        #     c_dat
+        # )
 
         # Return measured circuit
         return qc
