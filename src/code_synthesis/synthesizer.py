@@ -22,6 +22,19 @@ class Synthesizer(ABC):
         pass
 
 
+class ErrorSynthesizer(Synthesizer):
+
+    def __init__(self):
+        pass
+
+    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
+
+        # Cut and merge
+        print(circuit[:4])
+
+        pass
+
+
 class ShorSynthesizer(Synthesizer):
     '''Error-correcting code synthesizer for the 9-qubit Shor-code'''
 
@@ -71,8 +84,6 @@ class ShorSynthesizer(Synthesizer):
         circuit.append(
             measurement.operation,
             map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
-            # map(lambda c: circuit.cregs[c._index][0], measurement.clbits)
-            # measurement.clbits
             map(lambda c: circuit.clbits[c._index], measurement.clbits)
         )
         return
