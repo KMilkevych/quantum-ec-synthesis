@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from qiskit import QuantumCircuit, ClassicalRegister
 
 from qiskit_aer import AerSimulator
-# from qiskit_aer.primitives import EstimatorV2 as Estimator
 from qiskit_aer.primitives import SamplerV2 as Sampler
 from qiskit_aer.noise import NoiseModel
 from qiskit.transpiler import generate_preset_pass_manager

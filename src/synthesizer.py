@@ -22,24 +22,11 @@ class Synthesizer(ABC):
         pass
 
 
-class ErrorSynthesizer(Synthesizer):
-
-    def __init__(self):
-        pass
-
-    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
-
-        # Cut and merge
-        print(circuit[:4])
-
-        pass
-
-
 class ShorSynthesizer(Synthesizer):
     '''Error-correcting code synthesizer for the 9-qubit Shor-code'''
 
-    def __init__(self):
-        pass
+    def __init__(self, parallel_ec: bool = True):
+        self.parallel_ec = parallel_ec
 
     def _encode_logical_qubit(
             self,
@@ -187,18 +174,28 @@ class ShorSynthesizer(Synthesizer):
             qc.add_register(QuantumRegister(9, f'q_log{log}'))
 
         # Add ancillary and classical registers for computation
-        qc.add_register(q_anc := AncillaRegister(2, "q_anc"))
+        q_ancs = list()
+        if self.parallel_ec:
+            for i in range(circuit.num_qubits):
+                qc.add_register(q_anc := AncillaRegister(2, f"q_anc{i}"))
+                q_ancs.append(q_anc)
+        else:
+            qc.add_register(q_anc := AncillaRegister(2, "q_anc"))
+            q_ancs = [q_anc for _ in range(circuit.num_qubits)]
 
         # Add classical registers for measurements
         for creg in circuit.cregs:
             qc.add_register(creg)
 
         # Add classical registers for ancillary measurements
-        qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
-
-        # TODO: Initialize all qubits
-        # Initialize ancillary qubits
-        # qc.initialize(0, qc.ancillas)
+        c_ancs = list()
+        if self.parallel_ec:
+            for i in range(circuit.num_qubits):
+                qc.add_register(c_anc := ClassicalRegister(2, f"c_anc{i}"))
+                c_ancs.append(c_anc)
+        else:
+            qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
+            c_ancs = [c_anc for _ in range(circuit.num_qubits)]
 
         # Encode all logical qubits
         for log in range(circuit.num_qubits):
@@ -221,6 +218,8 @@ class ShorSynthesizer(Synthesizer):
                 case 'measure':
                     self._encode_measurement(qc, ins)
                     qc.barrier()
+
+                    # NOTE: continue to avoid double-barrier
                     continue
 
                 # Barriers are just ignored, as they are added anyway
@@ -239,18 +238,13 @@ class ShorSynthesizer(Synthesizer):
                 self._encode_error_correction(
                     qc,
                     qc.qregs[qb._index],
-                    q_anc,
-                    c_anc
+                    q_ancs[qb._index],
+                    c_ancs[qb._index]
                 )
 
             # NOTE: Adding a barrier for readability
             qc.barrier()
 
-        # Measure all non-ancillary qubits
-        # qc.measure(
-        #     map(lambda reg: reg[0], qc.qregs[:-1]),
-        #     c_dat
-        # )
 
         # Return measured circuit
         return qc
