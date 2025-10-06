@@ -1,16 +1,18 @@
 from synthesizer import ShorSynthesizer
 from simulator import CliffordSimulator
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
+from qiskit.visualization import plot_histogram
 
-def superposition_circuit(qubits=1, samples=1000):
+def not_circuit(qubits=1, samples=1000, plot=None):
 
-    # Prepare superposition circuit
+    # Prepare not circuit
     qc = QuantumCircuit(
         qreg := QuantumRegister(qubits, 'q_dat'),
         creg := ClassicalRegister(qubits, 'c_dat')
     )
     for i in range(qubits):
-        qc.h(i)
+        qc.x(i)
+
     qc.measure(qreg, creg)
 
     # Print information
@@ -21,9 +23,9 @@ def superposition_circuit(qubits=1, samples=1000):
     sim = CliffordSimulator()
 
     # Run simulation
-    res = sim.simulate(qc, creg, samples=samples, noise_model=None)
+    res1 = sim.simulate(qc, creg, samples=samples, noise_model=None)
     print(f"{samples} SIMULATIONS:")
-    print(res)
+    print(res1)
 
     # Do error-correction
     synth = ShorSynthesizer()
@@ -33,6 +35,20 @@ def superposition_circuit(qubits=1, samples=1000):
     print(qc)
 
     # Run simulation
-    res = sim.simulate(qc, creg, samples=samples, noise_model=None)
+    res2 = sim.simulate(qc, creg, samples=samples, noise_model=None)
     print(f"{samples} SIMULATIONS:")
-    print(res)
+    print(res2)
+
+    # Write visualization
+    if plot:
+        fig = plot_histogram(
+            [
+                res1,
+                res2
+            ],
+            legend=["original", "error-corrected"],
+            sort="desc",
+            figsize=(15, 12),
+            # color=["orange", "black"]
+        )
+        fig.savefig(plot)

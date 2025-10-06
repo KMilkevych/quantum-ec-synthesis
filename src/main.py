@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from experiment import superposition_circuit
+from experiment import not_circuit
 
 def main():
 
@@ -34,12 +34,17 @@ def main():
         type=int,
         default=1000
     )
+    parser.add_argument(
+        '--plot',
+        help="directory to store result visualisation",
+        type=str,
+    )
 
     # Parse arguments and run desired functionality
     args = parser.parse_args()
     match (args.command):
         case 'experiment':
-            superposition_circuit(args.qubits, args.samples)
+            not_circuit(args.qubits, args.samples, args.plot)
         case _:
             raise Exception(f'Invalid command: {args.command}')
 

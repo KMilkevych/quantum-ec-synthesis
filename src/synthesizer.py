@@ -25,7 +25,7 @@ class Synthesizer(ABC):
 class ShorSynthesizer(Synthesizer):
     '''Error-correcting code synthesizer for the 9-qubit Shor-code'''
 
-    def __init__(self, parallel_ec: bool = True):
+    def __init__(self, parallel_ec: bool = False):
         self.parallel_ec = parallel_ec
 
     def _encode_logical_qubit(
