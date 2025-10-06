@@ -12,6 +12,9 @@ def not_circuit(qubits=1, samples=1000, plot=None):
     )
     for i in range(qubits):
         qc.x(i)
+        pass
+    qc.h(0)
+
 
     qc.measure(qreg, creg)
 
@@ -47,7 +50,7 @@ def not_circuit(qubits=1, samples=1000, plot=None):
                 res2
             ],
             legend=["original", "error-corrected"],
-            sort="desc",
+            sort="asc",
             figsize=(15, 12),
             # color=["orange", "black"]
         )

@@ -7,8 +7,12 @@ from qiskit import (
 )
 from qiskit.circuit import (
     CircuitInstruction,
-    # Instruction,
+    Instruction
     # AncillaQubit
+)
+from qiskit.circuit.library import (
+    XGate,
+    ZGate
 )
 
 
@@ -47,6 +51,24 @@ class ShorSynthesizer(Synthesizer):
 
         return
 
+    def _decode_logical_qubit(
+            self,
+            circuit: QuantumCircuit,
+            register: QuantumRegister
+    ):
+        # Decode inner-layer of phase-flip protection
+        for i in reversed(range(3)):
+
+            for j in reversed(range(1, 3)):
+                circuit.cx(register[3*i], register[3*i + j])
+            circuit.h(register[3*i])
+
+        # Decode outer-layer of bit-flip protection
+        for i in reversed(range(1, 3)):
+            circuit.cx(register[0], register[i * 3])
+
+        return
+
     def _encode_gate_transversal(
             self,
             circuit: QuantumCircuit,
@@ -67,7 +89,7 @@ class ShorSynthesizer(Synthesizer):
             circuit: QuantumCircuit,
             measurement: CircuitInstruction
     ):
-        # Measure from the logical register
+        # Measure first qubit from corresponding logical register
         circuit.append(
             measurement.operation,
             map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
@@ -197,6 +219,7 @@ class ShorSynthesizer(Synthesizer):
             qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
             c_ancs = [c_anc for _ in range(circuit.num_qubits)]
 
+
         # Encode all logical qubits
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
@@ -210,12 +233,45 @@ class ShorSynthesizer(Synthesizer):
             # Encode supported gates
             match(ins.name):
 
-                # Clifford-Gates can be encoded transversally in Shor-code
-                case 'x' | 'h' | 's' | 'cx':
+                # X and Z gates are swapped and implemented transversally
+                case 'x':
+                    _ins = CircuitInstruction(
+                        operation=ZGate(),
+                        qubits=ins.qubits
+                    )
+                    self._encode_gate_transversal(qc, _ins)
+                case 'z':
+                    _ins = CircuitInstruction(
+                        operation=XGate(),
+                        qubits=ins.qubits
+                    )
+                    self._encode_gate_transversal(qc, _ins)
+
+                # CX gates can be encoded transversally
+                case 'cx':
                     self._encode_gate_transversal(qc, ins)
+
+                # H and S gates need extra steps
+                # BUG: Currently decode-operation-encode implementation
+                case 'h':
+                    self._decode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
+                    qc.h(ins.qubits[0]._index * 9)
+                    self._encode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
+                    qc.barrier()
+                    continue
+                case 's':
+                    self._decode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
+                    qc.h(ins.qubits[0]._index * 9)
+                    self._encode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
+                    qc.barrier()
+                    continue
+                # case 'h' | 's':
+                #     pass
 
                 # Measurements should be respected
                 case 'measure':
+                    for qb in ins.qubits:
+                        self._decode_logical_qubit(qc, qc.qregs[qb._index])
                     self._encode_measurement(qc, ins)
                     qc.barrier()
 
@@ -228,7 +284,7 @@ class ShorSynthesizer(Synthesizer):
 
                 # Other gates are currently unsupported
                 case _:
-                    raise Exception(f'Unsupported instruction: {ins}')
+                    raise Exception(f'Unsupported instruction: {ins.name}')
 
             # NOTE: Adding a barrier for readability
             qc.barrier()
