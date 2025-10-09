@@ -1,30 +1,16 @@
-from abc import ABC, abstractmethod
+from synthesizer.Synthesizer import Synthesizer
+
 from qiskit import (
     QuantumCircuit,
     QuantumRegister,
     AncillaRegister,
     ClassicalRegister
 )
-from qiskit.circuit import (
-    CircuitInstruction,
-    Instruction
-    # AncillaQubit
-)
+from qiskit.circuit import CircuitInstruction
 from qiskit.circuit.library import (
     XGate,
     ZGate
 )
-
-
-class Synthesizer(ABC):
-
-    # TODO:
-    # Add Pauli-string initialization of stabilizer codes
-
-    @abstractmethod
-    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
-        pass
-
 
 class ShorSynthesizer(Synthesizer):
     '''Error-correcting code synthesizer for the 9-qubit Shor-code'''
@@ -235,17 +221,17 @@ class ShorSynthesizer(Synthesizer):
 
                 # X and Z gates are swapped and implemented transversally
                 case 'x':
-                    _ins = CircuitInstruction(
+                    ins = CircuitInstruction(
                         operation=ZGate(),
                         qubits=ins.qubits
                     )
-                    self._encode_gate_transversal(qc, _ins)
+                    self._encode_gate_transversal(qc, ins)
                 case 'z':
-                    _ins = CircuitInstruction(
+                    ins = CircuitInstruction(
                         operation=XGate(),
                         qubits=ins.qubits
                     )
-                    self._encode_gate_transversal(qc, _ins)
+                    self._encode_gate_transversal(qc, ins)
 
                 # CX gates can be encoded transversally
                 case 'cx':
@@ -265,8 +251,6 @@ class ShorSynthesizer(Synthesizer):
                     self._encode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
                     qc.barrier()
                     continue
-                # case 'h' | 's':
-                #     pass
 
                 # Measurements should be respected
                 case 'measure':

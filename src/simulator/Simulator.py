@@ -1,0 +1,57 @@
+from abc import ABC, abstractmethod
+from qiskit import QuantumCircuit, ClassicalRegister
+from qiskit_aer.noise import NoiseModel
+
+
+class Simulator(ABC):
+
+    @abstractmethod
+    def simulate(
+            self,
+            circuit: QuantumCircuit,
+            measure_register: ClassicalRegister,
+            samples: int = 1000,
+            noise_model: NoiseModel = None
+    ) -> dict[str, int]:
+        pass
+
+
+
+
+# class GenericSimulator(Simulator):
+#     '''
+#     https://quantum.cloud.ibm.com/docs/en/guides/simulate-with-qiskit-aer
+#     '''
+
+#     def __init__(self):
+#         pass
+
+#     def simulate(
+#             self,
+#             circuit: QuantumCircuit,
+#             measure_register: ClassicalRegister,
+#             samples: int = 1000,
+#             noise_model: NoiseModel = None
+#     ) -> dict[str, int]:
+
+#         # TODO:
+#         # Should do transpilation to ISA circuit
+#         # Must do noise simulations using Qiskit AER
+#         # Figure out how to interleave classical computation
+#         #
+#         # IDEA: Use a reference sampler like SamplerV2 in primitives
+
+#         # pass_manager = generate_preset_pass_manager(3, AerSimulator())
+#         # isa_circuit = pass_manager.run(circuit)
+#         # print("ISA CIRCUIT:\n")
+#         # print(isa_circuit)
+
+#         sampler = Sampler(
+#             options=dict(backend_options=dict(
+#                 noise_model=noise_model
+#             ))
+#         )
+#         job = sampler.run([circuit], shots=samples)
+#         result = job.result()
+
+#         return getattr(result[0].data, measure_register.name).get_counts()

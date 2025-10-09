@@ -28,6 +28,12 @@ def main():
         default=1
     )
     parser.add_argument(
+        '--noisy',
+        help="enable noise simulation",
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
         '-s',
         '--samples',
         help="no. of samples/simulations",
@@ -44,7 +50,7 @@ def main():
     args = parser.parse_args()
     match (args.command):
         case 'experiment':
-            not_circuit(args.qubits, args.samples, args.plot)
+            not_circuit(args.qubits, args.samples, args.plot, args.noisy)
         case _:
             raise Exception(f'Invalid command: {args.command}')
 
