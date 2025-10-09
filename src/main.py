@@ -11,7 +11,7 @@ def main():
     )
 
     # Global parser arguments
-    parser.add_argument('-v', '--verbose', help="turn on verbose output", choices=(0,1), default=0)
+    parser.add_argument('-v', '--verbose', help="turn on verbose output", choices=(0,1), default=1)
     parser.add_argument(
         'command',
         help="method to run",
@@ -30,8 +30,9 @@ def main():
     parser.add_argument(
         '--noisy',
         help="enable noise simulation",
-        type=bool,
-        default=False
+        type=int,
+        choices=(0, 1),
+        default=0
     )
     parser.add_argument(
         '-s',
@@ -50,7 +51,7 @@ def main():
     args = parser.parse_args()
     match (args.command):
         case 'experiment':
-            not_circuit(args.qubits, args.samples, args.plot, args.noisy)
+            not_circuit(args.qubits, args.samples, args.plot, args.noisy == 1, args.verbose)
         case _:
             raise Exception(f'Invalid command: {args.command}')
 
