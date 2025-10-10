@@ -9,7 +9,7 @@ class Simulator(ABC):
     def simulate(
             self,
             circuit: QuantumCircuit,
-            measure_register: ClassicalRegister,
+            measure_register: str,
             samples: int = 1000,
             noise_model: NoiseModel = None
     ) -> dict[str, int]:

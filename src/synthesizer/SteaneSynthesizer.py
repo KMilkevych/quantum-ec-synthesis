@@ -205,12 +205,12 @@ class SteaneSynthesizer(Synthesizer):
         # Encode all logical qubits with error-correction
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
-            # self._encode_error_correction(
-            #     qc,
-            #     qc.qregs[log],
-            #     q_ancs[log],
-            #     c_ancs[log]
-            # )
+            self._encode_error_correction(
+                qc,
+                qc.qregs[log],
+                q_ancs[log],
+                c_ancs[log]
+            )
 
         # NOTE: Adding a barrier for readability
         qc.barrier()

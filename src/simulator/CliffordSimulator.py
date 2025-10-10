@@ -17,7 +17,7 @@ class CliffordSimulator(Simulator):
     def simulate(
             self,
             circuit: QuantumCircuit,
-            measure_register: ClassicalRegister,
+            measure_register: str,
             samples: int = 1000,
             noise_model: NoiseModel = None
     ) -> dict[str, int]:
@@ -31,4 +31,4 @@ class CliffordSimulator(Simulator):
         job = sampler.run([circuit], shots=samples)
         result = job.result()
 
-        return getattr(result[0].data, measure_register.name).get_counts()
+        return getattr(result[0].data, measure_register).get_counts()
