@@ -52,12 +52,18 @@ def main():
         type=str,
         default=None
     )
+    # TODO: Features
+    # synthesize_parser.add_argument(
+    #     '--optimize',
+    #     help="optimize code machinery",
+    #     action='store_true'
+    # )
 
     # Simulate parser arguments
     simulate_parser.add_argument(
         'input_circuit',
         nargs="+",
-        help=".qasm file containing input circuit",
+        help=".qasm file(s) containing input circuit(s)",
         type=str,
     )
     simulate_parser.add_argument(
@@ -83,7 +89,7 @@ def main():
     generate_parser.add_argument(
         '-k',
         '--kind',
-        help="kind of circuit to generate",
+        help="circuit to generate",
         type=str,
         choices=['all', 'identity', 'x', 'h', 'snake'],
         default='all'

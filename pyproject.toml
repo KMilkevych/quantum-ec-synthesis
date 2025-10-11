@@ -1,11 +1,11 @@
 [project]
 name = "quantum-ec-code-synthesis"
 version = "0.1.0"
-description = ""
+description = "Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation."
 authors = [
     {name = "Kostiantyn Milkevych"}
 ]
-readme = "README.md"
+readme = "README.org"
 requires-python = ">=3.13"
 dependencies = [
     "qiskit[qasm3-import] (>=2.2.1,<3.0.0)",
