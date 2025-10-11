@@ -20,7 +20,7 @@ options:
   -h, --help            show this help message and exit
   -v, --verbose {0,1}   turn on verbose output (default: 1)
 #+end_example
-** Quantum ECC Synthesis
+** Error-Correcting Code Synthesis
 #+begin_example
 usage: main.py synthesize [-h] [-m {shor,steane}] [-o OUTPUT] input_circuit
 

@@ -15,9 +15,21 @@ def main():
 
     # Add sub-parsers
     subparsers = parser.add_subparsers(help="Commands", dest='command')
-    synthesize_parser = subparsers.add_parser('synthesize')
-    simulate_parser = subparsers.add_parser('simulate')
-    generate_parser = subparsers.add_parser('generate')
+    synthesize_parser = subparsers.add_parser(
+        'synthesize',
+        description='Perform synthesis of Quantum Error-Correcting Codes onto existing circuits.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    simulate_parser = subparsers.add_parser(
+        'simulate',
+        description='Perform exact and noisy simulations of existing circuits.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    generate_parser = subparsers.add_parser(
+        'generate',
+        description='Generate example quantum circuits.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
     # Global parser arguments
     parser.add_argument(
