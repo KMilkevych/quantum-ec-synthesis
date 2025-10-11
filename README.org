@@ -1,0 +1,69 @@
+#+title: Readme
+#+author: Kostiantyn V. Milkevych
+
+* Usage
+To run the tool simply execute ~poetry run src/main.py~ and specify a sub-command, or run
+#+begin_src sh
+poetry run src/main.py --help
+#+end_src
+to see usage information:
+#+begin_example
+usage: main.py [-h] [-v {0,1}] {synthesize,simulate,generate} ...
+
+Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation.
+
+positional arguments:
+  {synthesize,simulate,generate}
+                        Commands
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose {0,1}   turn on verbose output (default: 1)
+#+end_example
+** Quantum ECC Synthesis
+#+begin_example
+usage: main.py synthesize [-h] [-m {shor,steane}] [-o OUTPUT] input_circuit
+
+positional arguments:
+  input_circuit         .qasm file containing input circuit
+
+options:
+  -h, --help            show this help message and exit
+  -m, --method {shor,steane}
+                        synthesis method
+  -o, --output OUTPUT   .qasm file for storing output circuit
+#+end_example
+
+** Sample circuit generation
+#+begin_example
+usage: main.py generate [-h] [-k {all,identity,x,h,snake}] [-q QUBITS]
+                        [-o OUTPUT]
+
+options:
+  -h, --help            show this help message and exit
+  -k, --kind {all,identity,x,h,snake}
+                        circuit to generate
+  -q, --qubits QUBITS   circuit size (no. logical qubits)
+  -o, --output OUTPUT   output file/directory for storing output circuits
+#+end_example
+
+** Exact and Noisy simulation
+#+begin_example
+usage: main.py simulate [-h] [--noisy] [-s SAMPLES] [--plot PLOT]
+                        input_circuit [input_circuit ...]
+
+positional arguments:
+  input_circuit         .qasm file(s) containing input circuit(s)
+
+options:
+  -h, --help            show this help message and exit
+  --noisy               enable noise simulation
+  -s, --samples SAMPLES
+                        no. of samples/simulations
+  --plot PLOT           .png file to store simulation measurements
+#+end_example
+
+* Examples
+
+
+* Installation
