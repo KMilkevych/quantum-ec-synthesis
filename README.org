@@ -1,4 +1,4 @@
-#+title: Readme
+#+title: Quantum EC Synthesis (QECS)
 #+author: Kostiantyn V. Milkevych
 
 * Usage
