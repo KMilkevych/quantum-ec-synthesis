@@ -9,12 +9,12 @@ def main():
 
     # Describe main parser
     parser = argparse.ArgumentParser(
-        description='Quantum Layout Synthesis for Fault-Tolerant computation.',
+        description='Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     # Add sub-parsers
-    subparsers = parser.add_subparsers(help="Actions", dest='command')
+    subparsers = parser.add_subparsers(help="Commands", dest='command')
     synthesize_parser = subparsers.add_parser('synthesize')
     simulate_parser = subparsers.add_parser('simulate')
     generate_parser = subparsers.add_parser('generate')
@@ -63,9 +63,7 @@ def main():
     simulate_parser.add_argument(
         '--noisy',
         help="enable noise simulation",
-        type=int,
-        choices=(0, 1),
-        default=0
+        action='store_true'
     )
     simulate_parser.add_argument(
         '-s',
@@ -108,6 +106,10 @@ def main():
     # Parse arguments and run desired functionality
     args = parser.parse_args()
     match (args.command):
+
+        case None:
+            print(parser.format_help())
+
         case 'synthesize':
 
             # Parse circuit
@@ -184,8 +186,14 @@ def main():
                 # Dump circuit to file
                 if args.output is not None:
                     from pathlib import Path
-                    ouf = Path(f"{args.output}/{kind}-{args.qubits}.qasm")
+
+                    if len(kinds) > 1:
+                        ouf = Path(f"{args.output}/{kind}-{args.qubits}.qasm")
+                    else:
+                        ouf = Path(f"{args.output}")
+
                     ouf.parent.mkdir(parents=True, exist_ok=True)
+
                     with open(ouf, 'w') as f:
                         qasm3.dump(qc, f)
 
@@ -206,7 +214,8 @@ def main():
 
                 # Prepare noise model
                 from experiment import _build_noise_model
-                nm = _build_noise_model(qc.num_qubits, 0.01) if args.noisy else None
+                noise_pb = 0.01
+                nm = _build_noise_model(qc.num_qubits, noise_pb) if args.noisy else None
 
                 # Prepare simulator
                 from simulator.CliffordSimulator import CliffordSimulator
@@ -225,13 +234,24 @@ def main():
 
             if args.plot:
                 from qiskit.visualization import plot_histogram
+                from matplotlib import color_sequences
+
+                plot_title = f"{args.samples} samples" \
+                    + (f" noise probability P={noise_pb * 100}%" \
+                    if args.noisy \
+                    else f" without noise")
+
+                plot_legends = list(map(lambda x: x[0], results))
+                plot_results = list(map(lambda x: x[1], results))
+                plot_colors = color_sequences['Set2'][:len(plot_results)]
+
                 fig = plot_histogram(
-                    list(map(lambda x: x[1], results)),
-                    legend=list(map(lambda x: x[0], results)),
+                    plot_results,
+                    legend=plot_legends,
                     sort="asc",
                     figsize=(15, 12),
-                    # color=["orange"],
-                    title=args.input_circuit
+                    color=plot_colors,
+                    title=plot_title
                 )
                 fig.savefig(args.plot)
 
