@@ -6,12 +6,10 @@ from synthesizer.SteaneSynthesizer import SteaneSynthesizer
 from simulator.CliffordSimulator import CliffordSimulator
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit.visualization import plot_histogram
-from qiskit_aer.noise import (
-    NoiseModel,
-    QuantumError,
-    pauli_error
-)
+from qiskit_aer.noise import NoiseModel
 from typing import Iterable
+
+from util import build_noise_model
 
 
 def _insert_random_bitflips(circuit: QuantumCircuit, qubits: Iterable[QubitSpecifier], count=1):
@@ -36,49 +34,6 @@ def _insert_random_bitflips(circuit: QuantumCircuit, qubits: Iterable[QubitSpeci
         ))
     return
 
-def _build_noise_model(n_err_qubits: int, p_error: float = 0.05) -> NoiseModel:
-    nm = NoiseModel()
-
-    # Build errors
-    bit_flip = pauli_error([
-        ("X", p_error),
-        ("I", 1 - p_error)
-    ])
-    phase_flip = pauli_error([
-        ("Z", p_error),
-        ("I", 1 - p_error)
-    ])
-    bitphase_flip = bit_flip.compose(phase_flip)
-    two_qubit_bitphase_flip = bitphase_flip.tensor(bitphase_flip)
-
-    # Add errors to noise model
-    # nm.add_all_qubit_quantum_error(
-    #     bitphase_flip,
-    #     ['x', 'z', 'h', 's']
-    # )
-    # nm.add_all_qubit_quantum_error(
-    #     two_qubit_bitphase_flip,
-    #     ['cx']
-    # )
-    for i in range(n_err_qubits):
-        nm.add_quantum_error(
-            bitphase_flip,
-            ['x', 'z', 'h', 's'],
-            (i,)
-        )
-        for j in range(i+1, n_err_qubits):
-            nm.add_quantum_error(
-                two_qubit_bitphase_flip,
-                'cx',
-                (i, j)
-            )
-            nm.add_quantum_error(
-                two_qubit_bitphase_flip,
-                'cx',
-                (j, i)
-            )
-            pass
-    return nm
 
 def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
 
@@ -88,7 +43,7 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
         creg := ClassicalRegister(qubits, 'c_dat')
     )
     for i in range(qubits):
-        qc.x(i)
+        pass
     # qc.x(0)
     # qc.cx(0, 1)
     # qc.x(0)
@@ -105,7 +60,7 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
     sim = CliffordSimulator()
 
     # Make a noise model
-    nm = _build_noise_model(qubits*7, 0.01) if noisy else None
+    nm = build_noise_model(qubits*7, 0.01) if noisy else None
 
     # qc_err = qc.copy()
     # if noisy:
@@ -125,7 +80,7 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
     synth = SteaneSynthesizer()
     qc_ec = synth.synthesize(qc)
 
-    _insert_random_bitflips(qc_ec, range(qubits * 7), 1)
+    # _insert_random_bitflips(qc_ec, range(qubits * 7), 1)
 
     if verbose == 1:
         print("ERROR-CORRECTED CIRCUIT:")

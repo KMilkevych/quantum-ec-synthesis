@@ -5,7 +5,6 @@ from config import (
     CIRCUIT_KINDS
 )
 
-
 from pathlib import Path
 import csv
 
@@ -19,7 +18,7 @@ from synthesizer.ShorSynthesizer import ShorSynthesizer
 from simulator.CliffordSimulator import CliffordSimulator
 
 from experiment import not_circuit
-from experiment import _build_noise_model
+from util import build_noise_model
 
 def main():
 
@@ -248,7 +247,7 @@ def main():
 
                 # Prepare noise model
                 noise_pb = 0.01
-                nm = _build_noise_model(qc.num_qubits, noise_pb) if args.noisy else None
+                nm = build_noise_model(qc.num_qubits, noise_pb) if args.noisy else None
 
                 # Prepare simulator
                 sim = CliffordSimulator()
@@ -268,7 +267,7 @@ def main():
 
                 # Prepare figure
                 plot_title = f"{args.samples} samples" \
-                    + (f" with noise probability P={noise_pb * 100}%" \
+                    + (f" with Z/X error probability {noise_pb * 100}%" \
                     if args.noisy \
                     else f" without noise")
 
