@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
 import argparse
+from config import (
+    SYNTHESIZE_METHODS,
+    CIRCUIT_KINDS
+)
 
-from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister
+
+from pathlib import Path
+import csv
+
 from qiskit import qasm3
+from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister
+from qiskit.visualization import plot_histogram
+from matplotlib import color_sequences
+
+from synthesizer.SteaneSynthesizer import SteaneSynthesizer
+from synthesizer.ShorSynthesizer import ShorSynthesizer
+from simulator.CliffordSimulator import CliffordSimulator
+
 from experiment import not_circuit
+from experiment import _build_noise_model
 
 def main():
 
@@ -51,11 +67,8 @@ def main():
         '--method',
         help="synthesis method",
         type=str,
-        choices=[
-            'shor',
-            'steane'
-        ],
-        default='steane'
+        choices=SYNTHESIZE_METHODS,
+        default=SYNTHESIZE_METHODS[0]
     )
     synthesize_parser.add_argument(
         '-o',
@@ -92,7 +105,13 @@ def main():
     )
     simulate_parser.add_argument(
         '--plot',
-        help=".png file to store simulation measurements",
+        help=".png file to plot simulation measurements",
+        type=str,
+        default=None
+    )
+    simulate_parser.add_argument(
+        '--csv',
+        help=".csv file to store simulation measurements",
         type=str,
         default=None
     )
@@ -103,8 +122,8 @@ def main():
         '--kind',
         help="circuit to generate",
         type=str,
-        choices=['all', 'identity', 'x', 'h', 'snake'],
-        default='all'
+        choices=CIRCUIT_KINDS,
+        default=CIRCUIT_KINDS[0]
     )
     generate_parser.add_argument(
         '-q',
@@ -141,10 +160,8 @@ def main():
             synth = None
             match (args.method):
                 case 'shor':
-                    from synthesizer.ShorSynthesizer import ShorSynthesizer
                     synth = ShorSynthesizer()
                 case 'steane':
-                    from synthesizer.SteaneSynthesizer import SteaneSynthesizer
                     synth = SteaneSynthesizer()
                 case _:
                     raise Exception(f'Invalid mehtod: {args.method}')
@@ -167,7 +184,7 @@ def main():
             if args.kind is not None and args.kind != 'all':
                 kinds = [args.kind]
             else:
-                kinds = ['identity', 'x', 'h', 'snake']
+                kinds = CIRCUIT_KINDS
 
             for kind in kinds:
                 qc = QuantumCircuit(
@@ -203,7 +220,6 @@ def main():
 
                 # Dump circuit to file
                 if args.output is not None:
-                    from pathlib import Path
 
                     if len(kinds) > 1:
                         ouf = Path(f"{args.output}/{kind}-{args.qubits}.qasm")
@@ -231,12 +247,10 @@ def main():
                     print(qc)
 
                 # Prepare noise model
-                from experiment import _build_noise_model
                 noise_pb = 0.01
                 nm = _build_noise_model(qc.num_qubits, noise_pb) if args.noisy else None
 
                 # Prepare simulator
-                from simulator.CliffordSimulator import CliffordSimulator
                 sim = CliffordSimulator()
 
                 # Simulate
@@ -251,11 +265,10 @@ def main():
                 )
 
             if args.plot:
-                from qiskit.visualization import plot_histogram
-                from matplotlib import color_sequences
 
+                # Prepare figure
                 plot_title = f"{args.samples} samples" \
-                    + (f" noise probability P={noise_pb * 100}%" \
+                    + (f" with noise probability P={noise_pb * 100}%" \
                     if args.noisy \
                     else f" without noise")
 
@@ -271,7 +284,48 @@ def main():
                     color=plot_colors,
                     title=plot_title
                 )
-                fig.savefig(args.plot)
+
+                # Save figure to file
+                ouf = Path(args.plot)
+                ouf.parent.mkdir(parents=True, exist_ok=True)
+
+                fig.savefig(ouf)
+
+            if args.csv:
+
+                # Prepare csv header
+                meas_labels = sorted(list(
+                    set.union(*map(
+                        lambda m: set(m.keys()),
+                        map(lambda x: x[1], results)
+                    ))
+                ))
+                header = ['circuit'] + meas_labels
+
+                # Prepare csv rows
+                rows = []
+                for circuit, measurements in results:
+                    row = [circuit]
+                    for lab in meas_labels:
+                        if lab in measurements.keys():
+                            row.append(measurements[lab])
+                        else:
+                            row.append(0)
+                    rows.append(row)
+
+                # Write csv file
+                ouf = Path(args.csv)
+                ouf.parent.mkdir(parents=True, exist_ok=True)
+
+                with open(ouf, 'w', newline='') as csvfile:
+                    writer = csv.writer(
+                        csvfile,
+                        delimiter=',',
+                        quotechar='"',
+                        quoting=csv.QUOTE_MINIMAL
+                    )
+                    writer.writerow(header)
+                    writer.writerows(rows)
 
         case 'experiment':
             not_circuit(args.qubits, args.samples, args.plot, args.noisy == 1, args.verbose)

@@ -1,4 +1,8 @@
+from typing import Optional
+from collections import defaultdict
+
 from synthesizer.Synthesizer import Synthesizer
+from synthesizer.BarrierTypes import BarrierType
 
 from qiskit import (
     QuantumCircuit,
@@ -6,12 +10,11 @@ from qiskit import (
     AncillaRegister,
     ClassicalRegister
 )
-from qiskit.circuit import CircuitInstruction
 from qiskit.circuit.library import (
-    XGate,
     ZGate,
     SGate
 )
+from qiskit._accelerate.circuit import CircuitInstruction
 
 class SteaneSynthesizer(Synthesizer):
     '''
@@ -19,7 +22,29 @@ class SteaneSynthesizer(Synthesizer):
     https://stem.mitre.org/quantum/error-correction-codes/steane-ecc.html
     '''
 
-    def __init__(self, parallel_ec: bool = False):
+    def __init__(
+            self,
+            barrier_labels: Optional[bool] = True,
+            ec_every_x_gates: int = 1,
+            parallel_ec: bool = False
+    ):
+
+        # Initialize barrier labels
+        if barrier_labels is True:
+            self.barrier_labels = {
+                BarrierType.ENCODE : 'ENCODE',
+                BarrierType.DECODE : 'DECODE',
+                BarrierType.LOGICAL_GATE : 'LOGICAL-GATE',
+                BarrierType.ERROR_CORRECT : 'ERROR-CORRECTION',
+                BarrierType.MEASURE : 'MEASURE',
+                BarrierType.SOURCE : 'SOURCE',
+                BarrierType.OTHER : None
+            }
+        else:
+            self.barrier_labels = defaultdict(None)
+
+        # Initialize other options
+        self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
 
     def _encode_logical_qubit(
@@ -76,11 +101,11 @@ class SteaneSynthesizer(Synthesizer):
             gate: CircuitInstruction
     ):
 
-        # Apply operation to all encoded qubits
+        # Apply operation to all physical qubits
         for i in range(7):
             circuit.append(
                 gate.operation,
-                map(lambda x: x._index * 7 + i, gate.qubits)
+                list(map(lambda x: x._index * 7 + i, gate.qubits))
             )
 
         return
@@ -93,8 +118,8 @@ class SteaneSynthesizer(Synthesizer):
         # Measure first qubit from corresponding logical register
         circuit.append(
             measurement.operation,
-            map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
-            map(lambda c: circuit.clbits[c._index], measurement.clbits)
+            list(map(lambda q: circuit.qregs[q._index][0], measurement.qubits)),
+            list(map(lambda c: circuit.clbits[c._index], measurement.clbits))
         )
         return
 
@@ -167,7 +192,6 @@ class SteaneSynthesizer(Synthesizer):
        return
 
 
-
     def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
 
         # Resulting circuit
@@ -188,6 +212,8 @@ class SteaneSynthesizer(Synthesizer):
             q_ancs = [q_anc for _ in range(circuit.num_qubits)]
 
         # Add classical registers for measurements
+        # BUG: Causes issues in line 227 with c_anc already being in use...
+        # Need name mangling for existing registers
         for creg in circuit.cregs:
             qc.add_register(creg)
 
@@ -205,18 +231,12 @@ class SteaneSynthesizer(Synthesizer):
         # Encode all logical qubits with error-correction
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
-            self._encode_error_correction(
-                qc,
-                qc.qregs[log],
-                q_ancs[log],
-                c_ancs[log]
-            )
 
         # NOTE: Adding a barrier for readability
-        qc.barrier()
+        qc.barrier(label=self.barrier_labels[BarrierType.ENCODE])
 
         # Encode all gates
-        for ins in circuit.data:
+        for ins_no, ins in enumerate(circuit.data):
 
             # Encode supported gates
             match(ins.name):
@@ -241,34 +261,54 @@ class SteaneSynthesizer(Synthesizer):
                 case 'measure':
                     for qb in ins.qubits:
                         self._decode_logical_qubit(qc, qc.qregs[qb._index])
+                    qc.barrier(label=self.barrier_labels[BarrierType.DECODE])
                     self._encode_measurement(qc, ins)
-                    qc.barrier()
+                    qc.barrier(label=self.barrier_labels[BarrierType.MEASURE])
 
                     # NOTE: continue to avoid double-barrier
                     continue
 
-                # Barriers are just ignored, as they are added anyway
+                # Add barrier
                 case 'barrier':
-                    pass
+
+                    barrier_label = None \
+                        if (il := ins.operation.label is None) \
+                           else il if (ol := self.barrier_labels[BarrierType.SOURCE] is None)\
+                                else f"{ol}-{il}"
+
+                    # if \
+                    #    (il := ins.operation.label is not None):
+                    #     if (ol := self.barrier_labels[BarrierType.SOURCE] is not None):
+                    #         barrier_label = f"{ol}-{il}"
+                    #     else:
+                    #         barrier_label = il
+                    # else:
+                    #     barrier_label = None
+
+                    # Add barrier to affected qubits
+                    qc.barrier(
+                        list(map(lambda x: qc.qregs[x], ins.qubits)),
+                        label=barrier_label
+                    )
 
                 # Other gates are currently unsupported
                 case _:
                     raise Exception(f'Unsupported instruction: {ins.name}')
 
-            # NOTE: Adding a barrier for readability
-            qc.barrier()
+            # NOTE: Inserting barrier for readability
+            qc.barrier(label=self.barrier_labels[BarrierType.LOGICAL_GATE])
 
             # Encode error-correction on all affected qubits
-            for qb in ins.qubits:
-                self._encode_error_correction(
-                    qc,
-                    qc.qregs[qb._index],
-                    q_ancs[qb._index],
-                    c_ancs[qb._index]
-                )
+            if ins_no % self.ec_every_x_gates == 0:
+                for qb in ins.qubits:
+                    self._encode_error_correction(
+                        qc,
+                        qc.qregs[qb._index],
+                        q_ancs[qb._index],
+                        c_ancs[qb._index]
+                    )
 
-            # NOTE: Adding a barrier for readability
-            qc.barrier()
+                qc.barrier(label=self.barrier_labels[BarrierType.ERROR_CORRECT])
 
 
         # Return measured circuit

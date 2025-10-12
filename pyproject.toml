@@ -1,5 +1,5 @@
 [project]
-name = "quantum-ec-code-synthesis"
+name = "quantum-ec-synthesis"
 version = "0.1.0"
 description = "Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation."
 authors = [
