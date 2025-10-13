@@ -246,7 +246,7 @@ def main():
                     print(qc)
 
                 # Prepare noise model
-                noise_pb = 0.01
+                noise_pb = 0.0001
                 nm = build_noise_model(qc.num_qubits, noise_pb) if args.noisy else None
 
                 # Prepare simulator

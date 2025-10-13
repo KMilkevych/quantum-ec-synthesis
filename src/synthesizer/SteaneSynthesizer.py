@@ -1,5 +1,8 @@
-from typing import Optional
+from typing import Optional, Iterable
 from collections import defaultdict
+
+from qiskit.circuit.gate import Instruction
+from qiskit.circuit.quantumcircuit import QubitSpecifier
 
 from synthesizer.Synthesizer import Synthesizer
 from synthesizer.BarrierTypes import BarrierType
@@ -26,7 +29,8 @@ class SteaneSynthesizer(Synthesizer):
             self,
             barrier_labels: Optional[bool] = True,
             ec_every_x_gates: int = 1,
-            parallel_ec: bool = False
+            parallel_ec: bool = False,
+            register_name_prefix: str = 'src_'
     ):
 
         # Initialize barrier labels
@@ -46,6 +50,9 @@ class SteaneSynthesizer(Synthesizer):
         # Initialize other options
         self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
+
+        # Set name prefix
+        self.register_name_prefix = register_name_prefix
 
     def _encode_logical_qubit(
             self,
@@ -98,14 +105,15 @@ class SteaneSynthesizer(Synthesizer):
     def _encode_gate_transversal(
             self,
             circuit: QuantumCircuit,
-            gate: CircuitInstruction
+            gate: Instruction,
+            logical_qubits: list[int]
     ):
 
         # Apply operation to all physical qubits
         for i in range(7):
             circuit.append(
-                gate.operation,
-                list(map(lambda x: x._index * 7 + i, gate.qubits))
+                gate,
+                list(map(lambda idx: idx * 7 + i, logical_qubits))
             )
 
         return
@@ -116,6 +124,7 @@ class SteaneSynthesizer(Synthesizer):
             measurement: CircuitInstruction
     ):
         # Measure first qubit from corresponding logical register
+        # NOTE: Might be issues with name mangling and register naming
         circuit.append(
             measurement.operation,
             list(map(lambda q: circuit.qregs[q._index][0], measurement.qubits)),
@@ -192,7 +201,7 @@ class SteaneSynthesizer(Synthesizer):
        return
 
 
-    def synthesize(self, circuit: QuantumCircuit) -> QuantumCircuit:
+    def synthesize(self, circuit: QuantumCircuit, data_register: Optional[str] = 'c_dat') -> QuantumCircuit:
 
         # Resulting circuit
         qc = QuantumCircuit()
@@ -211,11 +220,18 @@ class SteaneSynthesizer(Synthesizer):
             qc.add_register(q_anc := AncillaRegister(3, "q_anc"))
             q_ancs = [q_anc for _ in range(circuit.num_qubits)]
 
-        # Add classical registers for measurements
-        # BUG: Causes issues in line 227 with c_anc already being in use...
-        # Need name mangling for existing registers
+        # Add classical registers with name-mangling
         for creg in circuit.cregs:
-            qc.add_register(creg)
+            reg_name = creg.name
+            if creg.name.startswith('c_anc'):
+                reg_name = f"{self.register_name_prefix}{creg.name}"
+
+            qc.add_register(
+                ClassicalRegister(
+                    creg.size,
+                    reg_name,
+                )
+            )
 
         # Add classical registers for ancillary measurements
         c_ancs = list()
@@ -238,29 +254,41 @@ class SteaneSynthesizer(Synthesizer):
         # Encode all gates
         for ins_no, ins in enumerate(circuit.data):
 
+            logical_qubit_indices = list(map(
+                lambda x: circuit.find_bit(x).index,
+                ins.qubits
+            ))
+
             # Encode supported gates
             match(ins.name):
 
-
                 # CX gates can be encoded transversally
                 case 'x' | 'z' | 'h' | 'cx':
-                    self._encode_gate_transversal(qc, ins)
+                    self._encode_gate_transversal(
+                        qc,
+                        ins.operation,
+                        logical_qubit_indices
+                    )
 
                 # S gates are encoded transversally as ZS gates
                 case 's':
                     self._encode_gate_transversal(
                         qc,
-                        CircuitInstruction(operation=SGate(), qubits=ins.qubits)
+                        SGate(),
+                        logical_qubit_indices
                     )
                     self._encode_gate_transversal(
                         qc,
-                        CircuitInstruction(operation=ZGate(), qubits=ins.qubits)
+                        ZGate(),
+                        logical_qubit_indices
                     )
 
                 # Measurements should be respected
                 case 'measure':
+
                     for qb in ins.qubits:
                         self._decode_logical_qubit(qc, qc.qregs[qb._index])
+
                     qc.barrier(label=self.barrier_labels[BarrierType.DECODE])
                     self._encode_measurement(qc, ins)
                     qc.barrier(label=self.barrier_labels[BarrierType.MEASURE])
@@ -276,20 +304,18 @@ class SteaneSynthesizer(Synthesizer):
                            else il if (ol := self.barrier_labels[BarrierType.SOURCE] is None)\
                                 else f"{ol}-{il}"
 
-                    # if \
-                    #    (il := ins.operation.label is not None):
-                    #     if (ol := self.barrier_labels[BarrierType.SOURCE] is not None):
-                    #         barrier_label = f"{ol}-{il}"
-                    #     else:
-                    #         barrier_label = il
-                    # else:
-                    #     barrier_label = None
+                    qubit_indices = list(set.union(*list(map(
+                        lambda x: set(qc.qregs[x]),
+                        logical_qubit_indices
+                    ))))
 
-                    # Add barrier to affected qubits
                     qc.barrier(
-                        list(map(lambda x: qc.qregs[x], ins.qubits)),
+                        qubit_indices,
                         label=barrier_label
                     )
+
+                    # NOTE: continue to avoid double barrier
+                    continue
 
                 # Other gates are currently unsupported
                 case _:
