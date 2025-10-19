@@ -1,5 +1,6 @@
 SYNTHESIZE_METHODS: list[str] = [
     'steane',
+    '3-bit-flip-repitition',
     # 'shor'
 ]
 CIRCUIT_KINDS: list[str] = [
