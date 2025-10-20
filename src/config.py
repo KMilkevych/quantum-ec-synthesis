@@ -4,3 +4,4 @@ SYNTHESIZE_METHODS: list[str] = [
     # 'shor'
 ]
 CIRCUIT_KINDS: list[str] = ["all", "identity", "x", "h", "snake"]
+NOISE_KINDS: list[str] = ["z", "x", "zx"]

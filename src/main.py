@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS
+from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS
 
 from experiment import not_circuit
 
@@ -75,11 +75,26 @@ def main():
         help=".qasm file(s) containing input circuit(s)",
         type=str,
     )
-    simulate_parser.add_argument(
-        "--noisy", help="enable noise simulation", action="store_true"
-    )
+    # simulate_parser.add_argument(
+    #     "--noisy", help="enable noise simulation", action="store_true"
+    # )
     simulate_parser.add_argument(
         "-s", "--samples", help="no. of samples/simulations", type=int, default=1000
+    )
+    simulate_parser.add_argument(
+        "-nt",
+        "--noise-type",
+        help="type of noise model to simulate with",
+        type=str,
+        default=None,
+        choices=NOISE_KINDS
+    )
+    simulate_parser.add_argument(
+        "-na",
+        "--noise-amplitude",
+        help="probability of basic error in noise model",
+        type=float,
+        default=0.01
     )
     simulate_parser.add_argument(
         "--plot",
@@ -131,8 +146,9 @@ def main():
             simulate(
                 args.verbose,
                 args.input_circuit,
-                args.noisy,
                 args.samples,
+                args.noise_type,
+                args.noise_amplitude,
                 args.plot,
                 args.csv,
             )

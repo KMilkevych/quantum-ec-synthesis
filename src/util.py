@@ -1,4 +1,8 @@
-from qiskit_aer.noise import NoiseModel, pauli_error
+from qiskit_aer.noise import (
+    NoiseModel,
+    QuantumError,
+    pauli_error
+)
 
 
 def build_noise_model(n_err_qubits: int, p_error: float = 0.05) -> NoiseModel:
@@ -25,4 +29,31 @@ def build_noise_model(n_err_qubits: int, p_error: float = 0.05) -> NoiseModel:
             nm.add_quantum_error(two_qubit_bitphase_flip, "cx", (i, j))
             nm.add_quantum_error(two_qubit_bitphase_flip, "cx", (j, i))
             pass
+    return nm
+
+def build_z_noise_model(p_error: float) -> NoiseModel:
+    z_error = pauli_error([("Z", p_error), ("I", 1 - p_error)])
+    return build_noise_model_from_error(z_error)
+
+def build_x_noise_model(p_error: float) -> NoiseModel:
+    x_error = pauli_error([("X", p_error), ("I", 1 - p_error)])
+    return build_noise_model_from_error(x_error)
+
+def build_zx_noise_model(p_error: float) -> NoiseModel:
+    z_error = pauli_error([("Z", p_error), ("I", 1 - p_error)])
+    x_error = pauli_error([("X", p_error), ("I", 1 - p_error)])
+    error = x_error.compose(z_error)
+    return build_noise_model_from_error(error)
+
+def build_noise_model_from_error(error: QuantumError) -> NoiseModel:
+    nm = NoiseModel()
+    q2_error = error.tensor(error)
+    nm.add_all_qubit_quantum_error(
+        error,
+        ['x', 'z', 'h', 's']
+    )
+    nm.add_all_qubit_quantum_error(
+        q2_error,
+        ['cx']
+    )
     return nm

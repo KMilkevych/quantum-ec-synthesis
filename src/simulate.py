@@ -1,3 +1,4 @@
+from typing import Optional
 from pathlib import Path
 from matplotlib import color_sequences
 import csv
@@ -7,23 +8,25 @@ from qiskit.visualization import plot_histogram
 
 from simulator.CliffordSimulator import CliffordSimulator
 
-from util import build_noise_model
+from util import (
+    build_z_noise_model,
+    build_x_noise_model,
+    build_zx_noise_model
+)
 
 
 def simulate(
     verbose: int,
     input_circuit: str,
-    noisy: bool,
     samples: int,
+    noise_type: Optional[str],
+    noise_amplitude: float,
     plot_file: str,
     csv_file: str,
 ):
 
     # Container for results
     results = list()
-
-    # Noise-model noise probability
-    noise_pb = 0.00001
 
     # Parse circuit
     for circuit_file in input_circuit:
@@ -36,7 +39,22 @@ def simulate(
             print(qc)
 
         # Prepare noise model
-        nm = build_noise_model(qc.num_qubits, noise_pb) if noisy else None
+        nm = None
+        match noise_type:
+            case None:
+                pass
+
+            case 'z':
+                nm = build_z_noise_model(noise_amplitude)
+
+            case 'x':
+                nm = build_x_noise_model(noise_amplitude)
+
+            case 'zx':
+                nm = build_zx_noise_model(noise_amplitude)
+
+            case _:
+                raise Exception(f"Unexpected noise type: {noise_type}")
 
         # Prepare simulator
         sim = CliffordSimulator()
@@ -53,13 +71,20 @@ def simulate(
     # Visualize results as a histogram
     if plot_file:
 
-        # Prepare figure
-        plot_title = f"{samples} samples" + (
-            f" with Z/X error probability {noise_pb * 100}%"
-            if noisy
-            else f" without noise"
-        )
+        # Error kind
+        plot_error_desc = None
+        match (noise_type):
+            case None:
+                plot_error_desc = " without noise"
+            case 'z':
+                plot_error_desc = f" with Z error probability {noise_amplitude * 100}%"
+            case 'x':
+                plot_error_desc = f" with X error probability {noise_amplitude * 100}%"
+            case 'zx':
+                plot_error_desc = f" with Z/X error probability {noise_amplitude * 100}%"
 
+        # Prepare figure
+        plot_title = f"{samples} samples{plot_error_desc}"
         plot_legends = list(map(lambda x: x[0], results))
         plot_results = list(map(lambda x: x[1], results))
         plot_colors = color_sequences["Set2"][: len(plot_results)]
