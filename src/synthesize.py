@@ -4,12 +4,8 @@ from synthesizer.SteaneSynthesizer import SteaneSynthesizer
 from synthesizer.ShorSynthesizer import ShorSynthesizer
 from synthesizer.BitFlipSynthesizer import BitFlipSynthesizer
 
-def synthesize(
-    verbose: int,
-    input_circuit: str,
-    method: str,
-    output_file: str
-):
+
+def synthesize(verbose: int, input_circuit: str, method: str, output_file: str):
 
     # Parse circuit
     qc = qasm3.load(input_circuit)
@@ -21,14 +17,14 @@ def synthesize(
     # Parse method for synthesis
     synth = None
     match (method):
-        case 'shor':
+        case "shor":
             synth = ShorSynthesizer()
-        case 'steane':
+        case "steane":
             synth = SteaneSynthesizer()
-        case '3-bit-flip-repitition':
+        case "3-bit-flip-repitition":
             synth = BitFlipSynthesizer()
         case _:
-            raise Exception(f'Invalid mehtod: {method}')
+            raise Exception(f"Invalid mehtod: {method}")
 
     # Perform synthesis
     qc = synth.synthesize(qc)
@@ -39,7 +35,7 @@ def synthesize(
 
     # Save circuit to file
     if output_file:
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             qasm3.dump(qc, f)
 
     pass

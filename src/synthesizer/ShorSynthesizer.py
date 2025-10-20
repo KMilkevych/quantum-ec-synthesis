@@ -1,28 +1,17 @@
 from synthesizer.Synthesizer import Synthesizer
 
-from qiskit import (
-    QuantumCircuit,
-    QuantumRegister,
-    AncillaRegister,
-    ClassicalRegister
-)
+from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister, ClassicalRegister
 from qiskit.circuit import CircuitInstruction
-from qiskit.circuit.library import (
-    XGate,
-    ZGate
-)
+from qiskit.circuit.library import XGate, ZGate
+
 
 class ShorSynthesizer(Synthesizer):
-    '''Error-correcting code synthesizer for the 9-qubit Shor-code'''
+    """Error-correcting code synthesizer for the 9-qubit Shor-code"""
 
     def __init__(self, parallel_ec: bool = False):
         self.parallel_ec = parallel_ec
 
-    def _encode_logical_qubit(
-            self,
-            circuit: QuantumCircuit,
-            register: QuantumRegister
-    ):
+    def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Encode outer-layer of bit-flip protection
         for i in range(1, 3):
@@ -31,23 +20,19 @@ class ShorSynthesizer(Synthesizer):
         # Encode inner-layer of phase-flip protection
         for i in range(3):
 
-            circuit.h(register[3*i])
+            circuit.h(register[3 * i])
             for j in range(1, 3):
-                circuit.cx(register[3*i], register[3*i + j])
+                circuit.cx(register[3 * i], register[3 * i + j])
 
         return
 
-    def _decode_logical_qubit(
-            self,
-            circuit: QuantumCircuit,
-            register: QuantumRegister
-    ):
+    def _decode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
         # Decode inner-layer of phase-flip protection
         for i in reversed(range(3)):
 
             for j in reversed(range(1, 3)):
-                circuit.cx(register[3*i], register[3*i + j])
-            circuit.h(register[3*i])
+                circuit.cx(register[3 * i], register[3 * i + j])
+            circuit.h(register[3 * i])
 
         # Decode outer-layer of bit-flip protection
         for i in reversed(range(1, 3)):
@@ -56,39 +41,32 @@ class ShorSynthesizer(Synthesizer):
         return
 
     def _encode_gate_transversal(
-            self,
-            circuit: QuantumCircuit,
-            gate: CircuitInstruction
+        self, circuit: QuantumCircuit, gate: CircuitInstruction
     ):
 
         # Apply operation to all encoded qubits
         for i in range(9):
-            circuit.append(
-                gate.operation,
-                map(lambda x: x._index * 9 + i, gate.qubits)
-            )
+            circuit.append(gate.operation, map(lambda x: x._index * 9 + i, gate.qubits))
 
         return
 
     def _encode_measurement(
-            self,
-            circuit: QuantumCircuit,
-            measurement: CircuitInstruction
+        self, circuit: QuantumCircuit, measurement: CircuitInstruction
     ):
         # Measure first qubit from corresponding logical register
         circuit.append(
             measurement.operation,
             map(lambda q: circuit.qregs[q._index][0], measurement.qubits),
-            map(lambda c: circuit.clbits[c._index], measurement.clbits)
+            map(lambda c: circuit.clbits[c._index], measurement.clbits),
         )
         return
 
     def _encode_error_correction(
-            self,
-            circuit: QuantumCircuit,
-            q_register: QuantumRegister,
-            a_register: AncillaRegister,
-            c_register: ClassicalRegister
+        self,
+        circuit: QuantumCircuit,
+        q_register: QuantumRegister,
+        a_register: AncillaRegister,
+        c_register: ClassicalRegister,
     ):
 
         # Correct bit-flips in each block
@@ -134,15 +112,9 @@ class ShorSynthesizer(Synthesizer):
         # Measure syndromes for phase-flips
         circuit.h(a_register)
         circuit.barrier(a_register)
-        circuit.cx(
-            a_register[0],
-            (q_register[i] for i in range(6))
-        )
+        circuit.cx(a_register[0], (q_register[i] for i in range(6)))
         circuit.barrier(a_register)
-        circuit.cx(
-            a_register[1],
-            (q_register[i] for i in range(3, 9))
-        )
+        circuit.cx(a_register[1], (q_register[i] for i in range(3, 9)))
 
         circuit.barrier(a_register)
         circuit.h(a_register)
@@ -179,7 +151,7 @@ class ShorSynthesizer(Synthesizer):
 
         # Encode logical qubits of source circuit as quantum registers
         for log in range(circuit.num_qubits):
-            qc.add_register(QuantumRegister(9, f'q_log{log}'))
+            qc.add_register(QuantumRegister(9, f"q_log{log}"))
 
         # Add ancillary and classical registers for computation
         q_ancs = list()
@@ -205,7 +177,6 @@ class ShorSynthesizer(Synthesizer):
             qc.add_register(c_anc := ClassicalRegister(2, "c_anc"))
             c_ancs = [c_anc for _ in range(circuit.num_qubits)]
 
-
         # Encode all logical qubits
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
@@ -217,35 +188,29 @@ class ShorSynthesizer(Synthesizer):
         for ins in circuit.data:
 
             # Encode supported gates
-            match(ins.name):
+            match (ins.name):
 
                 # X and Z gates are swapped and implemented transversally
-                case 'x':
-                    ins = CircuitInstruction(
-                        operation=ZGate(),
-                        qubits=ins.qubits
-                    )
+                case "x":
+                    ins = CircuitInstruction(operation=ZGate(), qubits=ins.qubits)
                     self._encode_gate_transversal(qc, ins)
-                case 'z':
-                    ins = CircuitInstruction(
-                        operation=XGate(),
-                        qubits=ins.qubits
-                    )
+                case "z":
+                    ins = CircuitInstruction(operation=XGate(), qubits=ins.qubits)
                     self._encode_gate_transversal(qc, ins)
 
                 # CX gates can be encoded transversally
-                case 'cx':
+                case "cx":
                     self._encode_gate_transversal(qc, ins)
 
                 # H and S gates need extra steps
                 # BUG: Currently decode-operation-encode implementation
-                case 'h':
+                case "h":
                     self._decode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
                     qc.h(ins.qubits[0]._index * 9)
                     self._encode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
                     qc.barrier()
                     continue
-                case 's':
+                case "s":
                     self._decode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
                     qc.h(ins.qubits[0]._index * 9)
                     self._encode_logical_qubit(qc, qc.qregs[ins.qubits[0]._index])
@@ -253,7 +218,7 @@ class ShorSynthesizer(Synthesizer):
                     continue
 
                 # Measurements should be respected
-                case 'measure':
+                case "measure":
                     for qb in ins.qubits:
                         self._decode_logical_qubit(qc, qc.qregs[qb._index])
                     self._encode_measurement(qc, ins)
@@ -263,12 +228,12 @@ class ShorSynthesizer(Synthesizer):
                     continue
 
                 # Barriers are just ignored, as they are added anyway
-                case 'barrier':
+                case "barrier":
                     pass
 
                 # Other gates are currently unsupported
                 case _:
-                    raise Exception(f'Unsupported instruction: {ins.name}')
+                    raise Exception(f"Unsupported instruction: {ins.name}")
 
             # NOTE: Adding a barrier for readability
             qc.barrier()
@@ -276,15 +241,11 @@ class ShorSynthesizer(Synthesizer):
             # Encode error-correction on all affected qubits
             for qb in ins.qubits:
                 self._encode_error_correction(
-                    qc,
-                    qc.qregs[qb._index],
-                    q_ancs[qb._index],
-                    c_ancs[qb._index]
+                    qc, qc.qregs[qb._index], q_ancs[qb._index], c_ancs[qb._index]
                 )
 
             # NOTE: Adding a barrier for readability
             qc.barrier()
-
 
         # Return measured circuit
         return qc

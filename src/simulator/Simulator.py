@@ -7,15 +7,13 @@ class Simulator(ABC):
 
     @abstractmethod
     def simulate(
-            self,
-            circuit: QuantumCircuit,
-            measure_register: str,
-            samples: int = 1000,
-            noise_model: NoiseModel = None
+        self,
+        circuit: QuantumCircuit,
+        measure_register: str,
+        samples: int = 1000,
+        noise_model: NoiseModel = None,
     ) -> dict[str, int]:
         pass
-
-
 
 
 # class GenericSimulator(Simulator):

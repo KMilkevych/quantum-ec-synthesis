@@ -9,20 +9,21 @@ from simulator.CliffordSimulator import CliffordSimulator
 
 from util import build_noise_model
 
+
 def simulate(
     verbose: int,
     input_circuit: str,
     noisy: bool,
     samples: int,
     plot_file: str,
-    csv_file: str
+    csv_file: str,
 ):
 
     # Container for results
     results = list()
 
     # Noise-model noise probability
-    noise_pb = 0.01
+    noise_pb = 0.00001
 
     # Parse circuit
     for circuit_file in input_circuit:
@@ -41,28 +42,27 @@ def simulate(
         sim = CliffordSimulator()
 
         # Simulate
-        res = sim.simulate(qc, 'c_dat', samples, nm)
+        res = sim.simulate(qc, "c_dat", samples, nm)
         if verbose == 1:
             print(f"{samples} SIMULATIONS:")
             print(res)
 
         # Save result
-        results.append(
-            (circuit_file, res)
-        )
+        results.append((circuit_file, res))
 
     # Visualize results as a histogram
     if plot_file:
 
         # Prepare figure
-        plot_title = f"{samples} samples" \
-            + (f" with Z/X error probability {noise_pb * 100}%" \
-               if noisy \
-               else f" without noise")
+        plot_title = f"{samples} samples" + (
+            f" with Z/X error probability {noise_pb * 100}%"
+            if noisy
+            else f" without noise"
+        )
 
         plot_legends = list(map(lambda x: x[0], results))
         plot_results = list(map(lambda x: x[1], results))
-        plot_colors = color_sequences['Set2'][:len(plot_results)]
+        plot_colors = color_sequences["Set2"][: len(plot_results)]
 
         fig = plot_histogram(
             plot_results,
@@ -70,7 +70,7 @@ def simulate(
             sort="asc",
             figsize=(15, 12),
             color=plot_colors,
-            title=plot_title
+            title=plot_title,
         )
 
         # Save figure to file
@@ -83,13 +83,10 @@ def simulate(
     if csv_file:
 
         # Prepare csv header
-        meas_labels = sorted(list(
-            set.union(*map(
-                lambda m: set(m.keys()),
-                map(lambda x: x[1], results)
-            ))
-        ))
-        header = ['circuit'] + meas_labels
+        meas_labels = sorted(
+            list(set.union(*map(lambda m: set(m.keys()), map(lambda x: x[1], results))))
+        )
+        header = ["circuit"] + meas_labels
 
         # Prepare csv rows
         rows = []
@@ -106,12 +103,9 @@ def simulate(
         ouf = Path(csv_file)
         ouf.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(ouf, 'w', newline='') as csvfile:
+        with open(ouf, "w", newline="") as csvfile:
             writer = csv.writer(
-                csvfile,
-                delimiter=',',
-                quotechar='"',
-                quoting=csv.QUOTE_MINIMAL
+                csvfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
             writer.writerow(header)
             writer.writerows(rows)

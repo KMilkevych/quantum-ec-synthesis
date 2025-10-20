@@ -12,26 +12,34 @@ from typing import Iterable
 from util import build_noise_model
 
 
-def _insert_random_bitflips(circuit: QuantumCircuit, qubits: Iterable[QubitSpecifier], count=1):
+def _insert_random_bitflips(
+    circuit: QuantumCircuit, qubits: Iterable[QubitSpecifier], count=1
+):
     from random import randrange, choice
 
     # Find all barriers / placeholders
     barriers = [
-        i for i, ins in enumerate(circuit.data) if ins.operation.name == 'barrier'
+        i for i, ins in enumerate(circuit.data) if ins.operation.name == "barrier"
     ]
 
     for _ in range(count):
         q = choice(list(qubits))
         i = choice(barriers) + 1
-        circuit.data.insert(i, CircuitInstruction(
-            operation=XGate(label="ERROR"),
-            qubits=(q,),
-        ))
+        circuit.data.insert(
+            i,
+            CircuitInstruction(
+                operation=XGate(label="ERROR"),
+                qubits=(q,),
+            ),
+        )
         print(circuit.num_qubits)
-        circuit.data.insert(i+1, CircuitInstruction(
-            operation=Barrier(num_qubits=circuit.num_qubits, label="INSERTED"),
-            qubits=circuit.qubits
-        ))
+        circuit.data.insert(
+            i + 1,
+            CircuitInstruction(
+                operation=Barrier(num_qubits=circuit.num_qubits, label="INSERTED"),
+                qubits=circuit.qubits,
+            ),
+        )
     return
 
 
@@ -39,15 +47,14 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
 
     # Prepare not circuit
     qc = QuantumCircuit(
-        qreg := QuantumRegister(qubits, 'q_dat'),
-        creg := ClassicalRegister(qubits, 'c_dat')
+        qreg := QuantumRegister(qubits, "q_dat"),
+        creg := ClassicalRegister(qubits, "c_dat"),
     )
     for i in range(qubits):
         pass
     # qc.x(0)
     # qc.cx(0, 1)
     # qc.x(0)
-
 
     qc.measure(qreg, creg)
 
@@ -60,7 +67,7 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
     sim = CliffordSimulator()
 
     # Make a noise model
-    nm = build_noise_model(qubits*7, 0.01) if noisy else None
+    nm = build_noise_model(qubits * 7, 0.01) if noisy else None
 
     # qc_err = qc.copy()
     # if noisy:
@@ -103,13 +110,10 @@ def not_circuit(qubits=1, samples=1000, plot=None, noisy=False, verbose=0):
     # Write visualization
     if plot:
         fig = plot_histogram(
-            [
-                res1,
-                res2
-            ],
+            [res1, res2],
             legend=["original", "error-corrected"],
             sort="asc",
             figsize=(15, 12),
-            color=["orange", "black"]
+            color=["orange", "black"],
         )
         fig.savefig(plot)
