@@ -23,7 +23,7 @@ class BitFlipSynthesizer(Synthesizer):
         barrier_labels: Optional[bool] = True,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        register_name_prefix: str = "src_",
+        register_name_suffix: str = "'",
     ):
 
         # Initialize barrier labels
@@ -35,6 +35,7 @@ class BitFlipSynthesizer(Synthesizer):
                 BarrierType.ERROR_CORRECT: "ERROR-CORRECTION",
                 BarrierType.MEASURE: "MEASURE",
                 BarrierType.SOURCE: "SOURCE",
+                BarrierType.RESET: "RESET",
                 BarrierType.OTHER: None,
             }
         else:
@@ -45,7 +46,7 @@ class BitFlipSynthesizer(Synthesizer):
         self.parallel_ec = parallel_ec
 
         # Set name prefix
-        self.register_name_prefix = register_name_prefix
+        self.register_name_suffix = register_name_suffix
 
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
@@ -126,74 +127,132 @@ class BitFlipSynthesizer(Synthesizer):
 
         return
 
-    def _encode_logical_gate(
-            self,
-            circuit: QuantumCircuit,
-            gate: CircuitInstruction,
-            logical_qubits: list[int],
-            logical_clbits: list[int]
+    def _encode_instruction_sequence(
+        self,
+        circuit: QuantumCircuit,
+        original_circuit: QuantumCircuit,
+        instructions: Iterable[CircuitInstruction],
+        q_ancs: list[AncillaRegister],
+        c_ancs: list[ClassicalRegister]
     ):
 
-        # Encode supported gates
-        match (gate.name):
+        # Enumerate over all instructions
+        for ins_no, ins in enumerate(instructions):
 
-            # Most gates can be encoded transversally
-            case "x" | "z" | "h" | "s" | "cx":
-                self._encode_gate_transversal(
-                    circuit, gate.operation, logical_qubits
-                )
+            # Extract logical quantum and classical bits
+            logical_qubits = list(
+                map(lambda x: original_circuit.find_bit(x).index, ins.qubits)
+            )
+            logical_clbits = list(
+                map(lambda c: original_circuit.find_bit(c).index, ins.clbits)
+            )
 
-            # Measurements should be respected
-            case "measure":
-                for qb in logical_qubits:
-                    self._decode_logical_qubit(circuit, circuit.qregs[qb])
+            # Match based on instruction type
+            match (ins.name):
 
-                circuit.barrier(label=self.barrier_labels[BarrierType.DECODE])
-                self._encode_measurement(
-                    circuit,
-                    gate,
-                    logical_qubits,
-                    logical_clbits
-                )
-                circuit.barrier(label=self.barrier_labels[BarrierType.MEASURE])
-
-            # Resets are implemented as reset and re-encode on physical qubits
-            case "reset":
-
-                # Reset physical qubits
-                for logical_qubit in logical_qubits:
-                    circuit.reset([logical_qubit * 3 + i for i in range(3)])
-
-                # Re-encode logical qubit
-                for logical_qubit in logical_qubits:
-                    self._encode_logical_qubit(circuit, circuit.qregs[logical_qubit])
-
-            # Add barrier
-            case "barrier":
-
-                barrier_label = (
-                    None
-                    if (il := gate.operation.label is None)
-                    else (
-                        il
-                        if (ol := self.barrier_labels[BarrierType.SOURCE] is None)
-                        else f"{ol}-{il}"
+                # Most gates can be encoded transversally
+                case "x" | "z" | "h" | "s" | "cx":
+                    self._encode_gate_transversal(
+                        circuit, ins.operation, logical_qubits
                     )
-                )
 
-                qubit_indices = list(
-                    set.union(
-                        *list(
-                            map(lambda x: set(circuit.qregs[x]), logical_qubits)
+                    # Measurements should be respected
+                case "measure":
+                    for qb in logical_qubits:
+                        self._decode_logical_qubit(circuit, circuit.qregs[qb])
+                        circuit.barrier(label=self.barrier_labels[BarrierType.DECODE])
+                        self._encode_measurement(
+                            circuit,
+                            ins,
+                            logical_qubits,
+                            logical_clbits
+                        )
+                        circuit.barrier(label=self.barrier_labels[BarrierType.MEASURE])
+
+                # Resets are implemented as reset and re-encode on physical qubits
+                case "reset":
+
+                    # Reset physical qubits
+                    for logical_qubit in logical_qubits:
+                        circuit.reset([logical_qubit * 3 + i for i in range(3)])
+
+                    # Re-encode logical qubit
+                    for logical_qubit in logical_qubits:
+                        self._encode_logical_qubit(circuit, circuit.qregs[logical_qubit])
+
+                    # Add barrier
+                    circuit.barrier(label=self.barrier_labels[BarrierType.RESET])
+
+                case "barrier":
+
+                    barrier_label = (
+                        None
+                        if (il := ins.operation.label is None)
+                        else (
+                                il
+                                if (ol := self.barrier_labels[BarrierType.SOURCE] is None)
+                                else f"{ol}-{il}"
                         )
                     )
-                )
 
-                circuit.barrier(qubit_indices, label=barrier_label)
+                    qubit_indices = list(
+                        set.union(
+                            *list(
+                                map(lambda x: set(circuit.qregs[x]), logical_qubits)
+                            )
+                        )
+                    )
 
-            # Other gates are currently unsupported
-            case _:
-                raise Exception(f"Unsupported gatetruction: {gate.name}")
+                    circuit.barrier(qubit_indices, label=barrier_label)
+
+                case "if_else":
+
+                    # Extract conditional circuit
+                    conditional_circuit = ins.params[0]
+
+                    # Extract condition and translate into output register
+                    logical_cond_clbits, cond_val = ins.operation.condition
+                    cond_clbits = list(
+                        map(
+                            lambda x: circuit.cregs[original_circuit.cregs.index(x)],
+                            set(map(
+                                lambda x: original_circuit.find_bit(x).registers[0][0],
+                                logical_cond_clbits
+                            ))
+                        )
+                    )
+
+                    # Encode conditional part of circuit
+                    with circuit.if_test((cond_clbits[0], cond_val)):
+                        self._encode_instruction_sequence(
+                            circuit,
+                            original_circuit,
+                            conditional_circuit.data,
+                            q_ancs,
+                            c_ancs
+                        )
+
+                    # Other gates are currently unsupported
+                case _:
+                    raise Exception(f"Unsupported gatetruction: {ins.name}")
+
+            # Insert barrier and error-correction
+            if ins.name not in ('barrier', 'measure', 'reset', 'if_else'):
+
+                # Add barrier
+                circuit.barrier(label=self.barrier_labels[BarrierType.LOGICAL_GATE])
+
+                # Encode error-correction on all affected qubits
+                if ins_no % self.ec_every_x_gates == 0:
+                    for qb in logical_qubits:
+                        self._encode_error_correction(
+                            circuit,
+                            circuit.qregs[qb],
+                            q_ancs[qb],
+                            c_ancs[qb]
+                        )
+
+                    circuit.barrier(label=self.barrier_labels[BarrierType.ERROR_CORRECT])
 
         return
 
@@ -222,7 +281,7 @@ class BitFlipSynthesizer(Synthesizer):
         for creg in circuit.cregs:
             reg_name = creg.name
             if creg.name.startswith("c_anc"):
-                reg_name = f"{self.register_name_prefix}{creg.name}"
+                reg_name = f"{creg.name}{self.register_name_suffix}"
 
             qc.add_register(
                 ClassicalRegister(
@@ -245,87 +304,17 @@ class BitFlipSynthesizer(Synthesizer):
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
 
-        # NOTE: Adding a barrier for readability
+        # Add barrier for readability
         qc.barrier(label=self.barrier_labels[BarrierType.ENCODE])
 
         # Encode all gates
-        for ins_no, ins in enumerate(circuit.data):
-
-            # Special procedure for conditional operations
-            if ins.name == 'if_else':
-
-                # Extract conditional circuit
-                conditional_circuit = ins.params[0]
-
-                # Extract condition and translate into output register
-                logical_cond_clbits, cond_val = ins.operation.condition
-                cond_clbits = list(
-                    map(
-                        lambda x: qc.cregs[circuit.cregs.index(x)],
-                        set(map(
-                            lambda x: circuit.find_bit(x).registers[0][0],
-                            logical_cond_clbits
-                        ))
-                    )
-                )
-
-                # Perform conditional circuit
-                with qc.if_test((cond_clbits[0], cond_val)):
-
-                    # Iterate over conditional circuit gates
-                    for inner_ins_no, inner_ins in enumerate(conditional_circuit.data):
-
-                        logical_qubit_indices = list(
-                            map(lambda x: circuit.find_bit(x).index, inner_ins.qubits)
-                        )
-                        logical_clbit_indices = list(
-                            map(lambda c: circuit.find_bit(c).index, inner_ins.clbits)
-                        )
-                        self._encode_logical_gate(
-                            qc,
-                            inner_ins,
-                            logical_qubit_indices,
-                            logical_clbit_indices
-                        )
-
-                        # TODO: Add error-correction into this part
-                        _ = inner_ins_no
-
-                    pass
-
-                # We skip
-                continue
-
-            # Compute logical qubits in original circuit
-            logical_qubit_indices = list(
-                map(lambda x: circuit.find_bit(x).index, ins.qubits)
-            )
-            logical_clbit_indices = list(
-                map(lambda c: circuit.find_bit(c).index, ins.clbits)
-            )
-
-            # Encode logical gate
-            self._encode_logical_gate(
-                qc,
-                ins,
-                logical_qubit_indices,
-                logical_clbit_indices
-            )
-
-            # Insert barrier and error-correction
-            if ins.name not in ('barrier', 'measure'):
-
-                # Add barrier
-                qc.barrier(label=self.barrier_labels[BarrierType.LOGICAL_GATE])
-
-                # Encode error-correction on all affected qubits
-                if ins_no % self.ec_every_x_gates == 0:
-                    for qb in logical_qubit_indices:
-                        self._encode_error_correction(
-                            qc, qc.qregs[qb], q_ancs[qb], c_ancs[qb]
-                        )
-
-                    qc.barrier(label=self.barrier_labels[BarrierType.ERROR_CORRECT])
+        self._encode_instruction_sequence(
+            qc,
+            circuit,
+            circuit.data,
+            q_ancs,
+            c_ancs
+        )
 
         # Return measured circuit
         return qc

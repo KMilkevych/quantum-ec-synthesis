@@ -8,4 +8,5 @@ class BarrierType(Enum):
     ERROR_CORRECT = (auto(),)
     MEASURE = (auto(),)
     SOURCE = (auto(),)
+    RESET = (auto(),)
     OTHER = auto()
