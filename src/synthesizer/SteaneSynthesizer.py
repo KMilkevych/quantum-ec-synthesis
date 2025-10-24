@@ -57,7 +57,7 @@ class SteaneSynthesizer(Synthesizer):
         self.register_name_suffix = register_name_suffix
 
         # Whether to set barriers
-        self.barriers = True
+        self.barriers = False
 
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 

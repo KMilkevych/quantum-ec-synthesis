@@ -199,13 +199,12 @@ class BitFlipSynthesizer(Synthesizer):
                     # Measurements should be respected
                 case "measure":
                     for qb in logical_qubits:
-                        if self.ec_every_x_gates == 0 or True:
-                            self._encode_error_correction(
-                                circuit,
-                                circuit.qregs[qb],
-                                q_ancs[qb],
-                                c_ancs[qb]
-                            )
+                        self._encode_error_correction(
+                            circuit,
+                            circuit.qregs[qb],
+                            q_ancs[qb],
+                            c_ancs[qb]
+                        )
                         self._decode_logical_qubit(circuit, circuit.qregs[qb])
                         if self.barriers:
                             circuit.barrier(

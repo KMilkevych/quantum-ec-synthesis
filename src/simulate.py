@@ -53,6 +53,9 @@ def simulate(
             case 'zx':
                 nm = build_zx_noise_model(noise_amplitude)
 
+            case 'test':
+                nm = build_x_noise_model(noise_amplitude, [0, 1, 2, 5, 6, 7, 10, 11, 12])
+
             case _:
                 raise Exception(f"Unexpected noise type: {noise_type}")
 
