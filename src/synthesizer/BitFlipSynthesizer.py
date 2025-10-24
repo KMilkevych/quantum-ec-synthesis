@@ -11,6 +11,8 @@ from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister, ClassicalRe
 from qiskit.circuit.library import ZGate, SGate
 from qiskit._accelerate.circuit import CircuitInstruction
 
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
 
 class BitFlipSynthesizer(Synthesizer):
     """
@@ -23,7 +25,8 @@ class BitFlipSynthesizer(Synthesizer):
         barrier_labels: Optional[bool] = True,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        register_name_suffix: str = "'",
+        optimize: bool = False,
+        register_name_suffix: str = "_",
     ):
 
         # Initialize barrier labels
@@ -44,23 +47,54 @@ class BitFlipSynthesizer(Synthesizer):
         # Initialize other options
         self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
+        self.optimize = optimize
+        self.optimize_pass = generate_preset_pass_manager(optimization_level=3, basis_gates = ['cx', 'x', 'h', 's'])
 
         # Set name prefix
         self.register_name_suffix = register_name_suffix
 
+        # Whether to set barriers
+        self.barriers = False
+
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Encodes logical qubit
-        circuit.cx(register[0], register[1])
-        circuit.cx(register[0], register[2])
+        qc = circuit
+
+        if self.optimize:
+            qc = QuantumCircuit.copy_empty_like(circuit)
+
+        qc.cx(register[0], register[1])
+        qc.cx(register[0], register[2])
+
+        if self.optimize:
+
+            # Optimize sub-circuit
+            qc = self.optimize_pass.run(qc)
+
+            # Compose sub-circuit
+            circuit.compose(qc, inplace=True)
 
         return
 
     def _decode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Decodes logical qubit (reverse of encode)
-        circuit.cx(register[0], register[2])
-        circuit.cx(register[0], register[1])
+        qc = circuit
+
+        if self.optimize:
+            qc = QuantumCircuit.copy_empty_like(circuit)
+
+        qc.cx(register[0], register[2])
+        qc.cx(register[0], register[1])
+
+        if self.optimize:
+
+            # Optimize sub-circuit
+            qc = self.optimize_pass.run(qc)
+
+            # Compose sub-circuit
+            circuit.compose(qc, inplace=True)
 
         return
 
@@ -85,7 +119,6 @@ class BitFlipSynthesizer(Synthesizer):
         logical_clbits: list[int]
     ):
         # Measure first qubit from corresponding logical register
-        # NOTE: Might be issues with name mangling and register naming
         circuit.append(
             measurement.operation,
             list(map(lambda q: circuit.qregs[q][0], logical_qubits)),
@@ -107,9 +140,13 @@ class BitFlipSynthesizer(Synthesizer):
         circuit.cx(q_register[1], a_register[1])
         circuit.cx(q_register[2], a_register[1])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
+
         circuit.measure(a_register, c_register)
-        circuit.barrier()
+
+        if self.barriers:
+            circuit.barrier()
 
         # Perform error-corrections
         with circuit.if_test((c_register, 1)):
@@ -119,11 +156,14 @@ class BitFlipSynthesizer(Synthesizer):
         with circuit.if_test((c_register, 3)):
             circuit.x(q_register[1])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
 
         # Reset ancillaries
         circuit.reset(a_register)
-        circuit.barrier(a_register)
+
+        if self.barriers:
+            circuit.barrier(a_register)
 
         return
 
@@ -159,15 +199,28 @@ class BitFlipSynthesizer(Synthesizer):
                     # Measurements should be respected
                 case "measure":
                     for qb in logical_qubits:
+                        if self.ec_every_x_gates == 0 or True:
+                            self._encode_error_correction(
+                                circuit,
+                                circuit.qregs[qb],
+                                q_ancs[qb],
+                                c_ancs[qb]
+                            )
                         self._decode_logical_qubit(circuit, circuit.qregs[qb])
-                        circuit.barrier(label=self.barrier_labels[BarrierType.DECODE])
+                        if self.barriers:
+                            circuit.barrier(
+                                label=self.barrier_labels[BarrierType.DECODE]
+                            )
                         self._encode_measurement(
                             circuit,
                             ins,
                             logical_qubits,
                             logical_clbits
                         )
-                        circuit.barrier(label=self.barrier_labels[BarrierType.MEASURE])
+                        if self.barriers:
+                            circuit.barrier(
+                                label=self.barrier_labels[BarrierType.MEASURE]
+                            )
 
                 # Resets are implemented as reset and re-encode on physical qubits
                 case "reset":
@@ -181,7 +234,10 @@ class BitFlipSynthesizer(Synthesizer):
                         self._encode_logical_qubit(circuit, circuit.qregs[logical_qubit])
 
                     # Add barrier
-                    circuit.barrier(label=self.barrier_labels[BarrierType.RESET])
+                    if self.barriers:
+                        circuit.barrier(
+                            label=self.barrier_labels[BarrierType.RESET]
+                        )
 
                 case "barrier":
 
@@ -240,10 +296,13 @@ class BitFlipSynthesizer(Synthesizer):
             if ins.name not in ('barrier', 'measure', 'reset', 'if_else'):
 
                 # Add barrier
-                circuit.barrier(label=self.barrier_labels[BarrierType.LOGICAL_GATE])
+                if self.barriers:
+                    circuit.barrier(
+                        label=self.barrier_labels[BarrierType.LOGICAL_GATE]
+                    )
 
                 # Encode error-correction on all affected qubits
-                if ins_no % self.ec_every_x_gates == 0:
+                if self.ec_every_x_gates != 0 and ins_no % self.ec_every_x_gates == 0:
                     for qb in logical_qubits:
                         self._encode_error_correction(
                             circuit,
@@ -252,7 +311,11 @@ class BitFlipSynthesizer(Synthesizer):
                             c_ancs[qb]
                         )
 
-                    circuit.barrier(label=self.barrier_labels[BarrierType.ERROR_CORRECT])
+                    # Add barrier after error-correction
+                    if self.barriers:
+                        circuit.barrier(
+                            label=self.barrier_labels[BarrierType.ERROR_CORRECT]
+                        )
 
         return
 
@@ -305,7 +368,10 @@ class BitFlipSynthesizer(Synthesizer):
             self._encode_logical_qubit(qc, qc.qregs[log])
 
         # Add barrier for readability
-        qc.barrier(label=self.barrier_labels[BarrierType.ENCODE])
+        if self.barriers:
+            qc.barrier(
+                label=self.barrier_labels[BarrierType.ENCODE]
+            )
 
         # Encode all gates
         self._encode_instruction_sequence(

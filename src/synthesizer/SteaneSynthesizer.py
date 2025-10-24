@@ -11,6 +11,8 @@ from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister, ClassicalRe
 from qiskit.circuit.library import ZGate, SGate
 from qiskit._accelerate.circuit import CircuitInstruction
 
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
 
 class SteaneSynthesizer(Synthesizer):
     """
@@ -23,9 +25,11 @@ class SteaneSynthesizer(Synthesizer):
         barrier_labels: Optional[bool] = True,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        register_name_prefix: str = "src_",
+        optimize: bool = False,
+        register_name_suffix: str = "_",
     ):
 
+        print(f"{optimize=}")
         # Initialize barrier labels
         if barrier_labels is True:
             self.barrier_labels = {
@@ -35,6 +39,7 @@ class SteaneSynthesizer(Synthesizer):
                 BarrierType.ERROR_CORRECT: "ERROR-CORRECTION",
                 BarrierType.MEASURE: "MEASURE",
                 BarrierType.SOURCE: "SOURCE",
+                BarrierType.RESET: "RESET",
                 BarrierType.OTHER: None,
             }
         else:
@@ -43,47 +48,80 @@ class SteaneSynthesizer(Synthesizer):
         # Initialize other options
         self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
+        self.optimize = optimize
+
+        # Optimization pass
+        self.optimize_pass = generate_preset_pass_manager(optimization_level=3, basis_gates = ['cx', 'x', 'h', 's', 'z'])
 
         # Set name prefix
-        self.register_name_prefix = register_name_prefix
+        self.register_name_suffix = register_name_suffix
+
+        # Whether to set barriers
+        self.barriers = True
 
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Encodes logical qubit
-        circuit.cx(register[0], register[1])
-        circuit.cx(register[0], register[2])
-        circuit.h(register[4])
-        circuit.h(register[5])
-        circuit.h(register[6])
-        circuit.cx(register[6], register[0])
-        circuit.cx(register[6], register[1])
-        circuit.cx(register[6], register[3])
-        circuit.cx(register[5], register[0])
-        circuit.cx(register[5], register[2])
-        circuit.cx(register[5], register[3])
-        circuit.cx(register[4], register[1])
-        circuit.cx(register[4], register[2])
-        circuit.cx(register[4], register[3])
+        qc = circuit
+
+        if self.optimize:
+            qc = QuantumCircuit.copy_empty_like(circuit)
+
+        qc.cx(register[0], register[1])
+        qc.cx(register[0], register[2])
+        qc.h(register[4])
+        qc.h(register[5])
+        qc.h(register[6])
+        qc.cx(register[6], register[0])
+        qc.cx(register[6], register[1])
+        qc.cx(register[6], register[3])
+        qc.cx(register[5], register[0])
+        qc.cx(register[5], register[2])
+        qc.cx(register[5], register[3])
+        qc.cx(register[4], register[1])
+        qc.cx(register[4], register[2])
+        qc.cx(register[4], register[3])
+
+        if self.optimize:
+
+            # Optimize sub-circuit
+            qc = self.optimize_pass.run(qc)
+
+            # Compose sub-circuit
+            circuit.compose(qc, inplace=True)
 
         return
 
     def _decode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Decodes logical qubit (reverse of encode)
-        circuit.cx(register[4], register[3])
-        circuit.cx(register[4], register[2])
-        circuit.cx(register[4], register[1])
-        circuit.cx(register[5], register[3])
-        circuit.cx(register[5], register[2])
-        circuit.cx(register[5], register[0])
-        circuit.cx(register[6], register[3])
-        circuit.cx(register[6], register[1])
-        circuit.cx(register[6], register[0])
-        circuit.h(register[6])
-        circuit.h(register[5])
-        circuit.h(register[4])
-        circuit.cx(register[0], register[2])
-        circuit.cx(register[0], register[1])
+        qc = circuit
+
+        if self.optimize:
+            qc = QuantumCircuit.copy_empty_like(circuit)
+
+        qc.cx(register[4], register[3])
+        qc.cx(register[4], register[2])
+        qc.cx(register[4], register[1])
+        qc.cx(register[5], register[3])
+        qc.cx(register[5], register[2])
+        qc.cx(register[5], register[0])
+        qc.cx(register[6], register[3])
+        qc.cx(register[6], register[1])
+        qc.cx(register[6], register[0])
+        qc.h(register[6])
+        qc.h(register[5])
+        qc.h(register[4])
+        qc.cx(register[0], register[2])
+        qc.cx(register[0], register[1])
+
+        if self.optimize:
+
+            # Optimize sub-circuit
+            qc = self.optimize_pass.run(qc)
+
+            # Compose sub-circuit
+            circuit.compose(qc, inplace=True)
 
         return
 
@@ -93,19 +131,25 @@ class SteaneSynthesizer(Synthesizer):
 
         # Apply operation to all physical qubits
         for i in range(7):
-            circuit.append(gate, list(map(lambda idx: idx * 7 + i, logical_qubits)))
+            circuit.append(
+                gate,
+                list(map(lambda idx: idx * 7 + i, logical_qubits))
+            )
 
         return
 
     def _encode_measurement(
-        self, circuit: QuantumCircuit, measurement: CircuitInstruction
+        self,
+        circuit: QuantumCircuit,
+        measurement: CircuitInstruction,
+        logical_qubits: list[int],
+        logical_clbits: list[int]
     ):
         # Measure first qubit from corresponding logical register
-        # NOTE: Might be issues with name mangling and register naming
         circuit.append(
             measurement.operation,
-            list(map(lambda q: circuit.qregs[q._index][0], measurement.qubits)),
-            list(map(lambda c: circuit.clbits[c._index], measurement.clbits)),
+            list(map(lambda q: circuit.qregs[q][0], logical_qubits)),
+            list(map(lambda c: circuit.clbits[c], logical_clbits)),
         )
         return
 
@@ -130,20 +174,27 @@ class SteaneSynthesizer(Synthesizer):
                     continue
                 circuit.cx(q_register[j], a_register[i])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
+
         circuit.measure(a_register, c_register)
-        circuit.barrier()
+
+        if self.barriers:
+            circuit.barrier()
 
         # Perform bit-flip corrections
         for x in range(7):
             with circuit.if_test((c_register, x + 1)):
                 circuit.x(q_register[x])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
 
         # Reset ancillaries
         circuit.reset(a_register)
-        circuit.barrier(a_register)
+
+        if self.barriers:
+            circuit.barrier(a_register)
 
         # Measure phase-flip syndromes
         for i, syndrome in enumerate(stabilizers):
@@ -158,20 +209,191 @@ class SteaneSynthesizer(Synthesizer):
 
             circuit.h(a_register[i])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
+
         circuit.measure(a_register, c_register)
-        circuit.barrier()
+
+        if self.barriers:
+            circuit.barrier()
 
         # Perform phase-flip corrections
         for x in range(7):
             with circuit.if_test((c_register, x + 1)):
                 circuit.z(q_register[x])
 
-        circuit.barrier()
+        if self.barriers:
+            circuit.barrier()
 
         # Reset ancillaries
         circuit.reset(a_register)
-        circuit.barrier(a_register)
+
+        if self.barriers:
+            circuit.barrier(a_register)
+
+        return
+
+    def _encode_instruction_sequence(
+        self,
+        circuit: QuantumCircuit,
+        original_circuit: QuantumCircuit,
+        instructions: Iterable[CircuitInstruction],
+        q_ancs: list[AncillaRegister],
+        c_ancs: list[ClassicalRegister]
+    ):
+
+        # Enumerate over all instructions
+        for ins_no, ins in enumerate(instructions):
+
+            # Extract logical quantum and classical bits
+            logical_qubits = list(
+                map(lambda x: original_circuit.find_bit(x).index, ins.qubits)
+            )
+            logical_clbits = list(
+                map(lambda c: original_circuit.find_bit(c).index, ins.clbits)
+            )
+
+            # Match based on instruction type
+            match (ins.name):
+
+                # Most gates can be encoded transversally
+                case "x" | "z" | "h" | "cx":
+                    self._encode_gate_transversal(
+                        circuit, ins.operation, logical_qubits
+                    )
+
+                # S-gates need special treatment
+                case "s":
+                    self._encode_gate_transversal(
+                        circuit, SGate(), logical_qubits
+                    )
+                    self._encode_gate_transversal(
+                        circuit, ZGate(), logical_qubits
+                    )
+
+                    # Measurements should be respected
+                case "measure":
+                    for qb in logical_qubits:
+
+                        # Always EC before measure
+                        self._encode_error_correction(
+                            circuit,
+                            circuit.qregs[qb],
+                            q_ancs[qb],
+                            c_ancs[qb]
+                        )
+
+                        # Decode and measure
+                        self._decode_logical_qubit(circuit, circuit.qregs[qb])
+                        if self.barriers:
+                            circuit.barrier(
+                                label=self.barrier_labels[BarrierType.DECODE]
+                            )
+                        self._encode_measurement(
+                            circuit,
+                            ins,
+                            logical_qubits,
+                            logical_clbits
+                        )
+                        if self.barriers:
+                            circuit.barrier(
+                                label=self.barrier_labels[BarrierType.MEASURE]
+                            )
+
+                # Resets are implemented as reset and re-encode on physical qubits
+                case "reset":
+
+                    # Reset physical qubits
+                    for logical_qubit in logical_qubits:
+                        circuit.reset([logical_qubit * 7 + i for i in range(7)])
+
+                    # Re-encode logical qubit
+                    for logical_qubit in logical_qubits:
+                        self._encode_logical_qubit(circuit, circuit.qregs[logical_qubit])
+
+                    # Add barrier
+                    if self.barriers:
+                        circuit.barrier(
+                            label=self.barrier_labels[BarrierType.RESET]
+                        )
+
+                case "barrier":
+
+                    barrier_label = (
+                        None
+                        if (il := ins.operation.label is None)
+                        else (
+                                il
+                                if (ol := self.barrier_labels[BarrierType.SOURCE] is None)
+                                else f"{ol}-{il}"
+                        )
+                    )
+
+                    qubit_indices = list(
+                        set.union(
+                            *list(
+                                map(lambda x: set(circuit.qregs[x]), logical_qubits)
+                            )
+                        )
+                    )
+
+                    circuit.barrier(qubit_indices, label=barrier_label)
+
+                case "if_else":
+
+                    # Extract conditional circuit
+                    conditional_circuit = ins.params[0]
+
+                    # Extract condition and translate into output register
+                    logical_cond_clbits, cond_val = ins.operation.condition
+                    cond_clbits = list(
+                        map(
+                            lambda x: circuit.cregs[original_circuit.cregs.index(x)],
+                            set(map(
+                                lambda x: original_circuit.find_bit(x).registers[0][0],
+                                logical_cond_clbits
+                            ))
+                        )
+                    )
+
+                    # Encode conditional part of circuit
+                    with circuit.if_test((cond_clbits[0], cond_val)):
+                        self._encode_instruction_sequence(
+                            circuit,
+                            original_circuit,
+                            conditional_circuit.data,
+                            q_ancs,
+                            c_ancs
+                        )
+
+                    # Other gates are currently unsupported
+                case _:
+                    raise Exception(f"Unsupported gatetruction: {ins.name}")
+
+            # Insert barrier and error-correction
+            if ins.name not in ('barrier', 'measure', 'reset', 'if_else'):
+
+                # Add barrier
+                if self.barriers:
+                    circuit.barrier(
+                        label=self.barrier_labels[BarrierType.LOGICAL_GATE]
+                    )
+
+                # Encode error-correction on all affected qubits
+                if self.ec_every_x_gates != 0 and ins_no % self.ec_every_x_gates == 0:
+                    for qb in logical_qubits:
+                        self._encode_error_correction(
+                            circuit,
+                            circuit.qregs[qb],
+                            q_ancs[qb],
+                            c_ancs[qb]
+                        )
+
+                    # Add barrier after error-correction
+                    if self.barriers:
+                        circuit.barrier(
+                            label=self.barrier_labels[BarrierType.ERROR_CORRECT]
+                        )
 
         return
 
@@ -200,7 +422,7 @@ class SteaneSynthesizer(Synthesizer):
         for creg in circuit.cregs:
             reg_name = creg.name
             if creg.name.startswith("c_anc"):
-                reg_name = f"{self.register_name_prefix}{creg.name}"
+                reg_name = f"{creg.name}{self.register_name_suffix}"
 
             qc.add_register(
                 ClassicalRegister(
@@ -223,84 +445,20 @@ class SteaneSynthesizer(Synthesizer):
         for log in range(circuit.num_qubits):
             self._encode_logical_qubit(qc, qc.qregs[log])
 
-        # NOTE: Adding a barrier for readability
-        qc.barrier(label=self.barrier_labels[BarrierType.ENCODE])
-
-        # Encode all gates
-        for ins_no, ins in enumerate(circuit.data):
-
-            logical_qubit_indices = list(
-                map(lambda x: circuit.find_bit(x).index, ins.qubits)
+        # Add barrier for readability
+        if self.barriers:
+            qc.barrier(
+                label=self.barrier_labels[BarrierType.ENCODE]
             )
 
-            # Encode supported gates
-            match (ins.name):
-
-                # CX gates can be encoded transversally
-                case "x" | "z" | "h" | "cx":
-                    self._encode_gate_transversal(
-                        qc, ins.operation, logical_qubit_indices
-                    )
-
-                # S gates are encoded transversally as ZS gates
-                case "s":
-                    self._encode_gate_transversal(qc, SGate(), logical_qubit_indices)
-                    self._encode_gate_transversal(qc, ZGate(), logical_qubit_indices)
-
-                # Measurements should be respected
-                case "measure":
-
-                    for qb in ins.qubits:
-                        self._decode_logical_qubit(qc, qc.qregs[qb._index])
-
-                    qc.barrier(label=self.barrier_labels[BarrierType.DECODE])
-                    self._encode_measurement(qc, ins)
-                    qc.barrier(label=self.barrier_labels[BarrierType.MEASURE])
-
-                    # NOTE: continue to avoid double-barrier
-                    continue
-
-                # Add barrier
-                case "barrier":
-
-                    barrier_label = (
-                        None
-                        if (il := ins.operation.label is None)
-                        else (
-                            il
-                            if (ol := self.barrier_labels[BarrierType.SOURCE] is None)
-                            else f"{ol}-{il}"
-                        )
-                    )
-
-                    qubit_indices = list(
-                        set.union(
-                            *list(
-                                map(lambda x: set(qc.qregs[x]), logical_qubit_indices)
-                            )
-                        )
-                    )
-
-                    qc.barrier(qubit_indices, label=barrier_label)
-
-                    # NOTE: continue to avoid double barrier
-                    continue
-
-                # Other gates are currently unsupported
-                case _:
-                    raise Exception(f"Unsupported instruction: {ins.name}")
-
-            # NOTE: Inserting barrier for readability
-            qc.barrier(label=self.barrier_labels[BarrierType.LOGICAL_GATE])
-
-            # Encode error-correction on all affected qubits
-            if ins_no % self.ec_every_x_gates == 0:
-                for qb in ins.qubits:
-                    self._encode_error_correction(
-                        qc, qc.qregs[qb._index], q_ancs[qb._index], c_ancs[qb._index]
-                    )
-
-                qc.barrier(label=self.barrier_labels[BarrierType.ERROR_CORRECT])
+        # Encode all gates
+        self._encode_instruction_sequence(
+            qc,
+            circuit,
+            circuit.data,
+            q_ancs,
+            c_ancs
+        )
 
         # Return measured circuit
         return qc

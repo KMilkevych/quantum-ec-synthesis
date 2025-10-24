@@ -39,10 +39,14 @@ def generate(verbose: int, kind: str, qubits: int, output_file: str):
             case "snake":
                 for i in range(qubits):
 
-                    # Length-10 x-snake
-                    for _ in range(5):
+                    # Length-100 x-snake
+                    for _ in range(50):
                         qc.x(i)
                         qc.x(i)
+            case "entangle":
+                qc.h(0)
+                for i in range(1, qubits):
+                    qc.cx(0, i)
             case _:
                 raise Exception(f"Unrecognized circuit kind: {kind}")
 

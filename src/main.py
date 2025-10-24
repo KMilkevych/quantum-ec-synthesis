@@ -61,12 +61,11 @@ def main():
         type=str,
         default=None,
     )
-    # TODO: Features
-    # synthesize_parser.add_argument(
-    #     '--optimize',
-    #     help="optimize code machinery",
-    #     action='store_true'
-    # )
+    synthesize_parser.add_argument(
+        '--optimize',
+        help="optimize code machinery",
+        action='store_true'
+    )
 
     # Simulate parser arguments
     simulate_parser.add_argument(
@@ -137,7 +136,13 @@ def main():
             print(parser.format_help())
 
         case "synthesize":
-            synthesize(args.verbose, args.input_circuit, args.method, args.output)
+            synthesize(
+                args.verbose,
+                args.input_circuit,
+                args.method,
+                args.optimize,
+                args.output
+            )
 
         case "generate":
             generate(args.verbose, args.kind, args.qubits, args.output)
