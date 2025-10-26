@@ -150,9 +150,9 @@ class BitFlipSynthesizer(Synthesizer):
 
         # Perform error-corrections
         with circuit.if_test((c_register, 1)):
-            circuit.x(q_register[2])
-        with circuit.if_test((c_register, 2)):
             circuit.x(q_register[0])
+        with circuit.if_test((c_register, 2)):
+            circuit.x(q_register[2])
         with circuit.if_test((c_register, 3)):
             circuit.x(q_register[1])
 

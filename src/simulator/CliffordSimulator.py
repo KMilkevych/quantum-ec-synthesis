@@ -1,10 +1,10 @@
 from simulator.Simulator import Simulator
 
-from qiskit import QuantumCircuit, ClassicalRegister
-from qiskit_aer import AerSimulator
+# from qiskit.transpiler import generate_preset_pass_manager
+# from qiskit_aer import AerSimulator
+from qiskit import QuantumCircuit
 from qiskit_aer.primitives import SamplerV2 as Sampler
 from qiskit_aer.noise import NoiseModel
-from qiskit.transpiler import generate_preset_pass_manager
 
 
 class CliffordSimulator(Simulator):

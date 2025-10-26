@@ -2,7 +2,7 @@
 import argparse
 from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS
 
-from experiment import not_circuit
+from experiment import snake
 
 from simulate import simulate
 from generate import generate
@@ -32,6 +32,11 @@ def main():
     generate_parser = subparsers.add_parser(
         "generate",
         description="Generate example quantum circuits.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    experiment_parser = subparsers.add_parser(
+        "experiment",
+        description="Perform experiments.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -159,8 +164,9 @@ def main():
             )
 
         case "experiment":
-            not_circuit(
-                args.qubits, args.samples, args.plot, args.noisy == 1, args.verbose
+            snake(
+                args.verbose,
+                1000
             )
         case _:
             raise Exception(f"Invalid command: {args.command}")
