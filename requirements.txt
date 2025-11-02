@@ -3,3 +3,4 @@ qiskit[visualisation]
 qiskit[qasm3-import]
 qiskit-aer
 matplotlib
+numpy

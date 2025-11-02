@@ -5,3 +5,4 @@ SYNTHESIZE_METHODS: list[str] = [
 ]
 CIRCUIT_KINDS: list[str] = ["all", "identity", "x", "h", "snake", "entangle"]
 NOISE_KINDS: list[str] = ["z", "x", "zx"]
+EXPERIMENT_KINDS: list[str] = ["all", "circuit-depth", "error-rate", "correction-frequency"]

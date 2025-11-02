@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import argparse
-from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS
+from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS, EXPERIMENT_KINDS
 
-from experiment import snake
+from experiment import circuit_depth, error_rate, correction_frequency
 
 from simulate import simulate
 from generate import generate
@@ -133,6 +133,42 @@ def main():
         default=None,
     )
 
+    # Experiment parser arguments
+    experiment_parser.add_argument(
+        "experiment",
+        help="Which experiment to perform",
+        type=str,
+        choices=EXPERIMENT_KINDS
+    )
+    experiment_parser.add_argument(
+        "-p",
+        "--p-error",
+        help="Probability of error",
+        type=float,
+        default=0.01
+    )
+    experiment_parser.add_argument(
+        "-ec",
+        "--error-correct",
+        help="How often to perform error-correction",
+        type=int,
+        default=30
+    )
+    experiment_parser.add_argument(
+        "-d",
+        "--circuit_depth",
+        help="How deep a circuit to generate",
+        type=int,
+        default=1024
+    )
+    experiment_parser.add_argument(
+        "-s",
+        "--samples",
+        help="How many samples to measure",
+        type=int,
+        default=1000
+    )
+
     # Parse arguments and run desired functionality
     args = parser.parse_args()
     match (args.command):
@@ -164,10 +200,44 @@ def main():
             )
 
         case "experiment":
-            snake(
-                args.verbose,
-                1000
-            )
+
+            match (args.experiment):
+                case "all":
+                    circuit_depth(
+                        samples=args.samples,
+                        p_error=args.p_error,
+                        error_correct=args.error_correct
+                    )
+                    error_rate(
+                        samples=args.samples,
+                        circuit_depth=args.circuit_depth,
+                        error_correct=args.error_correct
+                    )
+                    correction_frequency(
+                        samples=args.samples,
+                        p_error=args.p_error,
+                        circuit_depth=args.circuit_depth
+                    )
+                case "circuit-depth":
+                    circuit_depth(
+                        samples=args.samples,
+                        p_error=args.p_error,
+                        error_correct=args.error_correct
+                    )
+                case "error-rate":
+                    error_rate(
+                        samples=args.samples,
+                        circuit_depth=args.circuit_depth,
+                        error_correct=args.error_correct
+                    )
+                case "correction-frequency":
+                    correction_frequency(
+                        samples=args.samples,
+                        p_error=args.p_error,
+                        circuit_depth=args.circuit_depth
+                    )
+                case _:
+                    raise Exception(f"Invalid experiment kind: {args.experiment}")
         case _:
             raise Exception(f"Invalid command: {args.command}")
 
