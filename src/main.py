@@ -13,7 +13,7 @@ def main():
 
     # Describe main parser
     parser = argparse.ArgumentParser(
-        description="Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation.",
+        description="Quantum Error-Correction Code Synthesis for Fault-Tolerant computation.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -42,7 +42,7 @@ def main():
 
     # Global parser arguments
     parser.add_argument(
-        "-v", "--verbose", help="turn on verbose output", choices=(0, 1), default=1
+        "-v", "--verbose", help="turn on verbose output", type=int, choices=(0, 1), default=1
     )
 
     # Synthesize parser arguments
