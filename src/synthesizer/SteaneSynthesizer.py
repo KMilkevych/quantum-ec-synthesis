@@ -27,9 +27,9 @@ class SteaneSynthesizer(Synthesizer):
         parallel_ec: bool = False,
         optimize: bool = False,
         register_name_suffix: str = "_",
+        set_barriers: bool = False
     ):
 
-        print(f"{optimize=}")
         # Initialize barrier labels
         if barrier_labels is True:
             self.barrier_labels = {
@@ -56,8 +56,8 @@ class SteaneSynthesizer(Synthesizer):
         # Set name prefix
         self.register_name_suffix = register_name_suffix
 
-        # Whether to set barriers
-        self.barriers = False
+        # Whether or not to insert artificial barriers
+        self.barriers = set_barriers
 
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
@@ -162,7 +162,12 @@ class SteaneSynthesizer(Synthesizer):
     ):
 
         # Perform measurement of syndromes
-        stabilizers = ["0001111", "0110011", "1010101"]
+        # NOTE: The rows are reversed to enable simple correction
+        stabilizers = [
+            "1010101",
+            "0110011",
+            "0001111"
+        ]
 
         # First measure bit-flip syndromes
         for i, syndrome in enumerate(stabilizers):
@@ -398,7 +403,7 @@ class SteaneSynthesizer(Synthesizer):
         return
 
     def synthesize(
-        self, circuit: QuantumCircuit, data_register: Optional[str] = "c_dat"
+        self, circuit: QuantumCircuit
     ) -> QuantumCircuit:
 
         # Resulting circuit

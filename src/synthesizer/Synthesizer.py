@@ -11,7 +11,8 @@ class Synthesizer(ABC):
         barrier_labels: Optional[bool] = None,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        optimize: bool = False
+        optimize: bool = False,
+        register_name_suffix: str = "_"
     ):
         pass
 

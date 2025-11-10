@@ -60,6 +60,13 @@ def main():
         default=SYNTHESIZE_METHODS[0],
     )
     synthesize_parser.add_argument(
+        "-ecf",
+        "--error-correction-frequency",
+        help="Frequency of error-correction insertion. 0=only before each measurement.",
+        type=int,
+        default=1,
+    )
+    synthesize_parser.add_argument(
         "-o",
         "--output",
         help=".qasm file for storing output circuit",
@@ -79,9 +86,6 @@ def main():
         help=".qasm file(s) containing input circuit(s)",
         type=str,
     )
-    # simulate_parser.add_argument(
-    #     "--noisy", help="enable noise simulation", action="store_true"
-    # )
     simulate_parser.add_argument(
         "-s", "--samples", help="no. of samples/simulations", type=int, default=1000
     )
@@ -182,6 +186,7 @@ def main():
                 args.input_circuit,
                 args.method,
                 args.optimize,
+                args.error_correction_frequency,
                 args.output
             )
 

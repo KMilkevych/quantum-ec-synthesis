@@ -1,7 +1,6 @@
 from qiskit import qasm3
 
 from synthesizer.SteaneSynthesizer import SteaneSynthesizer
-from synthesizer.ShorSynthesizer import ShorSynthesizer
 from synthesizer.BitFlipSynthesizer import BitFlipSynthesizer
 
 
@@ -10,6 +9,7 @@ def synthesize(
         input_circuit: str,
         method: str,
         optimize: bool,
+        ec_frequency: int,
         output_file: str
 ):
 
@@ -23,12 +23,16 @@ def synthesize(
     # Parse method for synthesis
     synth = None
     match (method):
-        case "shor":
-            synth = ShorSynthesizer()
         case "steane":
-            synth = SteaneSynthesizer(optimize=optimize)
+            synth = SteaneSynthesizer(
+                optimize=optimize,
+                ec_every_x_gates=ec_frequency,
+            )
         case "3-bit":
-            synth = BitFlipSynthesizer(optimize=optimize)
+            synth = BitFlipSynthesizer(
+                optimize=optimize,
+                ec_every_x_gates=ec_frequency,
+            )
         case _:
             raise Exception(f"Invalid mehtod: {method}")
 
