@@ -27,6 +27,7 @@ class BitFlipSynthesizer(Synthesizer):
         parallel_ec: bool = False,
         optimize: bool = False,
         register_name_suffix: str = "_",
+        set_barriers: bool = False,
     ):
 
         # Initialize barrier labels
@@ -53,8 +54,8 @@ class BitFlipSynthesizer(Synthesizer):
         # Set name prefix
         self.register_name_suffix = register_name_suffix
 
-        # Whether to set barriers
-        self.barriers = False
+        # Whether or not to insert artificial barriers
+        self.barriers = set_barriers
 
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
@@ -319,7 +320,7 @@ class BitFlipSynthesizer(Synthesizer):
         return
 
     def synthesize(
-        self, circuit: QuantumCircuit, data_register: Optional[str] = "c_dat"
+        self, circuit: QuantumCircuit
     ) -> QuantumCircuit:
 
         # Resulting circuit

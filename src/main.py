@@ -13,7 +13,7 @@ def main():
 
     # Describe main parser
     parser = argparse.ArgumentParser(
-        description="Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation.",
+        description="Quantum Error-Correction Code Synthesis for Fault-Tolerant computation.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -42,7 +42,7 @@ def main():
 
     # Global parser arguments
     parser.add_argument(
-        "-v", "--verbose", help="turn on verbose output", choices=(0, 1), default=1
+        "-v", "--verbose", help="turn on verbose output", type=int, choices=(0, 1), default=1
     )
 
     # Synthesize parser arguments
@@ -58,6 +58,13 @@ def main():
         type=str,
         choices=SYNTHESIZE_METHODS,
         default=SYNTHESIZE_METHODS[0],
+    )
+    synthesize_parser.add_argument(
+        "-ecf",
+        "--error-correction-frequency",
+        help="Frequency of error-correction insertion. 0=only before each measurement.",
+        type=int,
+        default=1,
     )
     synthesize_parser.add_argument(
         "-o",
@@ -79,9 +86,6 @@ def main():
         help=".qasm file(s) containing input circuit(s)",
         type=str,
     )
-    # simulate_parser.add_argument(
-    #     "--noisy", help="enable noise simulation", action="store_true"
-    # )
     simulate_parser.add_argument(
         "-s", "--samples", help="no. of samples/simulations", type=int, default=1000
     )
@@ -182,6 +186,7 @@ def main():
                 args.input_circuit,
                 args.method,
                 args.optimize,
+                args.error_correction_frequency,
                 args.output
             )
 

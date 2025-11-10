@@ -40,7 +40,7 @@ def generate(verbose: int, kind: str, qubits: int, output_file: str):
                 for i in range(qubits):
 
                     # Length-100 x-snake
-                    for _ in range(50):
+                    for _ in range(100):
                         qc.x(i)
                         qc.x(i)
             case "entangle":

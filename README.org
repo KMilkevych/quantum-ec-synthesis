@@ -8,12 +8,12 @@ poetry run src/main.py --help
 #+end_src
 to see usage information:
 #+begin_example
-usage: main.py [-h] [-v {0,1}] {synthesize,simulate,generate} ...
+usage: main.py [-h] [-v {0,1}] {synthesize,simulate,generate,experiment} ...
 
-Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation.
+Quantum Error-Correction Code Synthesis for Fault-Tolerant computation.
 
 positional arguments:
-  {synthesize,simulate,generate}
+  {synthesize,simulate,generate,experiment}
                         Commands
 
 options:
@@ -22,48 +22,209 @@ options:
 #+end_example
 ** Error-Correcting Code Synthesis
 #+begin_example
-usage: main.py synthesize [-h] [-m {shor,steane}] [-o OUTPUT] input_circuit
+usage: main.py synthesize [-h] [-m {steane,3-bit}]
+                          [-ecf ERROR_CORRECTION_FREQUENCY] [-o OUTPUT]
+                          [--optimize]
+                          input_circuit
+
+Perform synthesis of Quantum Error-Correcting Codes onto existing circuits.
 
 positional arguments:
   input_circuit         .qasm file containing input circuit
 
 options:
   -h, --help            show this help message and exit
-  -m, --method {shor,steane}
-                        synthesis method
-  -o, --output OUTPUT   .qasm file for storing output circuit
+  -m, --method {steane,3-bit}
+                        synthesis method (default: steane)
+  -ecf, --error-correction-frequency ERROR_CORRECTION_FREQUENCY
+                        Frequency of error-correction insertion. 0=only before
+                        each measurement. (default: 1)
+  -o, --output OUTPUT   .qasm file for storing output circuit (default: None)
+  --optimize            optimize code machinery (default: False)
 #+end_example
 
 ** Sample circuit generation
 #+begin_example
-usage: main.py generate [-h] [-k {all,identity,x,h,snake}] [-q QUBITS]
-                        [-o OUTPUT]
+usage: main.py generate [-h] [-k {all,identity,x,h,snake,entangle}]
+                        [-q QUBITS] [-o OUTPUT]
+
+Generate example quantum circuits.
 
 options:
   -h, --help            show this help message and exit
-  -k, --kind {all,identity,x,h,snake}
-                        circuit to generate
-  -q, --qubits QUBITS   circuit size (no. logical qubits)
+  -k, --kind {all,identity,x,h,snake,entangle}
+                        circuit to generate (default: all)
+  -q, --qubits QUBITS   circuit size (no. logical qubits) (default: 1)
   -o, --output OUTPUT   output file/directory for storing output circuits
+                        (default: None)
 #+end_example
 
 ** Exact and Noisy simulation
 #+begin_example
-usage: main.py simulate [-h] [--noisy] [-s SAMPLES] [--plot PLOT]
+usage: main.py simulate [-h] [-s SAMPLES] [-nt {z,x,zx}] [-na NOISE_AMPLITUDE]
+                        [--plot PLOT] [--csv CSV]
                         input_circuit [input_circuit ...]
+
+Perform exact and noisy simulations of existing circuits.
 
 positional arguments:
   input_circuit         .qasm file(s) containing input circuit(s)
 
 options:
   -h, --help            show this help message and exit
-  --noisy               enable noise simulation
   -s, --samples SAMPLES
-                        no. of samples/simulations
-  --plot PLOT           .png file to store simulation measurements
+                        no. of samples/simulations (default: 1000)
+  -nt, --noise-type {z,x,zx}
+                        type of noise model to simulate with (default: None)
+  -na, --noise-amplitude NOISE_AMPLITUDE
+                        probability of basic error in noise model (default:
+                        0.01)
+  --plot PLOT           .png file to plot simulation measurements (default:
+                        None)
+  --csv CSV             .csv file to store simulation measurements (default:
+                        None)
 #+end_example
+** Noise Experiments
+#+begin_src
+usage: main.py experiment [-h] [-p P_ERROR] [-ec ERROR_CORRECT]
+                          [-d CIRCUIT_DEPTH] [-s SAMPLES]
+                          {all,circuit-depth,error-rate,correction-frequency}
+
+Perform experiments.
+
+positional arguments:
+  {all,circuit-depth,error-rate,correction-frequency}
+                        Which experiment to perform
+
+options:
+  -h, --help            show this help message and exit
+  -p, --p-error P_ERROR
+                        Probability of error (default: 0.01)
+  -ec, --error-correct ERROR_CORRECT
+                        How often to perform error-correction (default: 30)
+  -d, --circuit_depth CIRCUIT_DEPTH
+                        How deep a circuit to generate (default: 1024)
+  -s, --samples SAMPLES
+                        How many samples to measure (default: 1000)
+#+end_src
+
 
 * Examples
+** Noise simulation on error-corrected circuits
 
+*** Circuit Generation
+First run the ~generate~ command to generate a base circuit:
+#+begin_src
+poetry run src/main.py generate -k x -q 1 -o circuit.qasm
+#+end_src
+which gives output:
+#+begin_src
+GENERATED x-circuit:
+         ┌───┐┌─┐
+  q_dat: ┤ X ├┤M├
+         └───┘└╥┘
+c_dat: 1/══════╩═
+               0
+#+end_src
+*** Error-correction synthesis
+Next, encode the circuit with an error-correcting code:
+#+begin_src
+poetry run src/main.py synthesize circuit.qasm -m 3-bit -ecf 0 -o ec-circuit.qasm
+#+end_src
+#+begin_src
+INPUT CIRCUIT:
+         ┌───┐┌─┐
+  q_dat: ┤ X ├┤M├
+         └───┘└╥┘
+c_dat: 1/══════╩═
+               0
+OUTPUT CIRCUIT:
+                    ┌───┐                            ┌────── ┌───┐ ───────┐ »
+q_log0_0: ──■────■──┤ X ├──■─────────────────────────┤ If-0  ┤ X ├  End-0 ├─»
+          ┌─┴─┐  │  ├───┤  │                         └──╥─── └───┘ ───────┘ »
+q_log0_1: ┤ X ├──┼──┤ X ├──┼────■────■──────────────────╫───────────────────»
+          └───┘┌─┴─┐├───┤  │    │    │                  ║                   »
+q_log0_2: ─────┤ X ├┤ X ├──┼────┼────┼───────■──────────╫───────────────────»
+               └───┘└───┘┌─┴─┐┌─┴─┐  │  ┌─┐  │          ║                   »
+ q_anc_0: ───────────────┤ X ├┤ X ├──┼──┤M├──┼───|0>────╫───────────────────»
+                         └───┘└───┘┌─┴─┐└╥┘┌─┴─┐ ┌─┐    ║                   »
+ q_anc_1: ─────────────────────────┤ X ├─╫─┤ X ├─┤M├────╫───────────────────»
+                                   └───┘ ║ └───┘ └╥┘    ║                   »
+ c_dat: 1/═══════════════════════════════╬════════╬═════╬═══════════════════»
+                                         ║        ║  ┌──╨──┐                »
+ c_anc: 2/═══════════════════════════════╩════════╩══╡ 0x1 ╞════════════════»
+                                         0        1  └─────┘                »
+«                                                                       ┌─┐
+«q_log0_0: ─────────────────────────────────────────────────────■────■──┤M├
+«                                      ┌────── ┌───┐ ───────┐   │  ┌─┴─┐└╥┘
+«q_log0_1: ────────────────────────────┤ If-0  ┤ X ├  End-0 ├───┼──┤ X ├─╫─
+«               ┌────── ┌───┐ ───────┐ └──╥─── └───┘ ───────┘ ┌─┴─┐└───┘ ║
+«q_log0_2: ─────┤ If-0  ┤ X ├  End-0 ├────╫───────────────────┤ X ├──────╫─
+«               └──╥─── └───┘ ───────┘    ║                   └───┘      ║
+« q_anc_0: ────────╫──────────────────────╫──────────────────────────────╫─
+«                  ║                      ║                              ║
+« q_anc_1: ─|0>────╫──────────────────────╫──────────────────────────────╫─
+«                  ║                      ║                              ║
+« c_dat: 1/════════╬══════════════════════╬══════════════════════════════╩═
+«               ┌──╨──┐                ┌──╨──┐                           0
+« c_anc: 2/═════╡ 0x2 ╞════════════════╡ 0x3 ╞═════════════════════════════
+«               └─────┘                └─────┘
+#+end_src
+*** Noise simulation
+Lastly, perform noise simulations with the ~simulate~ command to benchmark the error-corrected circuit:
+#+begin_src
+poetry run src/main.py simulate circuit.qasm ec-circuit.qasm -s 1000 -nt x -na 0.01 --plot figure.png --csv data.csv
+#+end_src
+#+begin_src
+INPUT CIRCUIT:
+         ┌───┐┌─┐
+  q_dat: ┤ X ├┤M├
+         └───┘└╥┘
+c_dat: 1/══════╩═
+               0
+1000 SIMULATIONS:
+{'1': 993, '0': 7}
+INPUT CIRCUIT:
+                    ┌───┐                            ┌────── ┌───┐ ───────┐ »
+q_log0_0: ──■────■──┤ X ├──■─────────────────────────┤ If-0  ┤ X ├  End-0 ├─»
+          ┌─┴─┐  │  ├───┤  │                         └──╥─── └───┘ ───────┘ »
+q_log0_1: ┤ X ├──┼──┤ X ├──┼────■────■──────────────────╫───────────────────»
+          └───┘┌─┴─┐├───┤  │    │    │                  ║                   »
+q_log0_2: ─────┤ X ├┤ X ├──┼────┼────┼───────■──────────╫───────────────────»
+               └───┘└───┘┌─┴─┐┌─┴─┐  │  ┌─┐  │          ║                   »
+ q_anc_0: ───────────────┤ X ├┤ X ├──┼──┤M├──┼───|0>────╫───────────────────»
+                         └───┘└───┘┌─┴─┐└╥┘┌─┴─┐ ┌─┐    ║                   »
+ q_anc_1: ─────────────────────────┤ X ├─╫─┤ X ├─┤M├────╫───────────────────»
+                                   └───┘ ║ └───┘ └╥┘    ║                   »
+ c_dat: 1/═══════════════════════════════╬════════╬═════╬═══════════════════»
+                                         ║        ║  ┌──╨──┐                »
+ c_anc: 2/═══════════════════════════════╩════════╩══╡ 0x1 ╞════════════════»
+                                         0        1  └─────┘                »
+«                                                                       ┌─┐
+«q_log0_0: ─────────────────────────────────────────────────────■────■──┤M├
+«                                      ┌────── ┌───┐ ───────┐   │  ┌─┴─┐└╥┘
+«q_log0_1: ────────────────────────────┤ If-0  ┤ X ├  End-0 ├───┼──┤ X ├─╫─
+«               ┌────── ┌───┐ ───────┐ └──╥─── └───┘ ───────┘ ┌─┴─┐└───┘ ║
+«q_log0_2: ─────┤ If-0  ┤ X ├  End-0 ├────╫───────────────────┤ X ├──────╫─
+«               └──╥─── └───┘ ───────┘    ║                   └───┘      ║
+« q_anc_0: ────────╫──────────────────────╫──────────────────────────────╫─
+«                  ║                      ║                              ║
+« q_anc_1: ─|0>────╫──────────────────────╫──────────────────────────────╫─
+«                  ║                      ║                              ║
+« c_dat: 1/════════╬══════════════════════╬══════════════════════════════╩═
+«               ┌──╨──┐                ┌──╨──┐                           0
+« c_anc: 2/═════╡ 0x2 ╞════════════════╡ 0x3 ╞═════════════════════════════
+«               └─────┘                └─────┘
+1000 SIMULATIONS:
+{'1': 944, '0': 56}
+#+end_src
+
+This generates a histogram over the measurements in the file =figure.png= and a data file =data.csv= storing the exact numbers:
+
+#+NAME: table
+#+CAPTION: Stored simulation data
+| circuit         |  0 |   1 |
+| circuit.qasm    |  7 | 993 |
+| ec-circuit.qasm | 56 | 944 |
 
 * Installation
