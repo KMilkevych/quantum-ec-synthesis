@@ -28,7 +28,7 @@ def correction_frequency(
     verbose = 1
     log_qubits = 1
 
-    FOLDER_NAME = f"correction-frequency-d{circuit_depth}-p{int(p_error * 1000)}"
+    FOLDER_NAME = f"correction-frequency-d{circuit_depth}-p{int(p_error * 100000)}"
 
     # For storing results
     results = []
@@ -76,18 +76,6 @@ def correction_frequency(
             print("LEVEL 2 SYNTHESIZED")
             if verbose == 1: print(ec_ec_qc)
 
-            # Save circuits to files
-            # save_paths = [
-            #     (qc, "plain.qasm"),
-            #     (ec_qc, "ec.qasm"),
-            #     (ec_ec_qc, "ec-ec.qasm"),
-            #    ]
-            # for circuit, path_suffix in save_paths:
-            #     path = Path(f"experiments/{FOLDER_NAME}/circuits/{circuit_depth}-{path_suffix}")
-            #     path.parent.mkdir(parents=True, exist_ok=True)
-            #     with open(path, "w") as f:
-            #         qasm3.dump(circuit, f)
-
             # Prepare noise models
             nm = build_x_noise_model(p_error=p_error)
             ec_nm = build_x_noise_model(p_error=p_error)
@@ -127,33 +115,9 @@ def correction_frequency(
         writer.writerow(header)
         writer.writerows(results)
 
-    # Make regular plot first...
-    # plot_colors = color_sequences["Set2"][:3]
-    # fig, ax = plt.subplots(
-    #     figsize=(8, 8),
-    # )
-
-    x_values, y_values, p1_values, p2_values, p3_values = zip(*results)
+    _, _, _, _, p3_values = zip(*results)
 
     pres = [[p3_values[i * len(FREQ) + j] for j in range(len(FREQ))] for i in range(len(FREQ))]
-
-    # ax.plot(x_values, p1_values, label='plain', marker="o", color=plot_colors[0])
-    # ax.plot(x_values, p2_values, label='ec', marker="s", color=plot_colors[1])
-    # ax.plot(x_values, p3_values, label='ec-ec', marker="^", color=plot_colors[2])
-    # ax.set_xlabel('Error-Correction Frequency (lvl1)')
-    # ax.set_ylabel('Correct Measurements (%)')
-    # ax.set_title(f'Error-Correction Frequency Experiment with {p_error * 100}% error-probability, {circuit_depth} circuit depth')
-
-    # ax.set_xticks(FREQ)
-    # ax.set_xticklabels(list(map(str, FREQ)))
-
-    # ax.legend()
-    # ax.grid(True, which='both', ls='--', alpha=0.6)
-
-    # # Save figure to file
-    # figure_path = Path(f"experiments/{FOLDER_NAME}/figure_line.png")
-    # figure_path.parent.mkdir(parents=True, exist_ok=True)
-    # fig.savefig(figure_path, dpi=600)
 
     # Create other figure
     fig, ax = plt.subplots(
@@ -161,32 +125,6 @@ def correction_frequency(
     )
 
     import numpy as np
-    def compute_edges(values):
-        values = np.asarray(values)
-        diffs = np.diff(values)
-
-        # Interior edges: halfway between points
-        edges = (values[:-1] + values[1:]) / 2
-
-        # Extrapolate first and last edge outward by half the neighbor spacing
-        first_edge = values[0] - diffs[0] / 2
-        last_edge = values[-1] + diffs[-1] / 2
-
-        return np.concatenate(([first_edge], edges, [last_edge]))
-
-    x_edges = compute_edges(FREQ)
-    y_edges = compute_edges(FREQ)
-
-    # Plot grid
-    # mesh = ax.pcolormesh(
-    #     x_edges,
-    #     y_edges,
-    #     pres,
-    #     cmap='viridis',
-    #     shading='flat',
-    #     # vmin=0.4,
-    #     # vmax=1.0
-    # )
     im = ax.imshow(
         pres,
         cmap='viridis',
@@ -195,8 +133,8 @@ def correction_frequency(
     )
 
     # Set tick positions and labels to match your grid coordinates
-    ax.set_xticks(np.arange(len(FREQ)))
-    ax.set_yticks(np.arange(len(FREQ)))
+    ax.set_xticks(range(len(FREQ)))
+    ax.set_yticks(range(len(FREQ)))
     ax.set_xticklabels(list(map(str, FREQ)))
     ax.set_yticklabels(list(map(str, FREQ)))
 
@@ -204,8 +142,7 @@ def correction_frequency(
     ax.set_ylabel('Outer EC Frequency (no. gates)')
     ax.set_title(f'EC-freq. Experiment with {p_error * 100}% error-prob., {circuit_depth} circuit depth')
 
-    cbar = fig.colorbar(im, ax=ax, label="Correct Measurements (%)")
-    # cbar.set_ticks([0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    fig.colorbar(im, ax=ax, label="Correct Measurements (%)")
 
     # Add exact measurement values
     for i, l in enumerate(pres):
@@ -331,7 +268,7 @@ def error_rate(
         writer.writerow(header)
         writer.writerows(results)
 
-    # Save figure
+    # Create figure
     plot_colors = color_sequences["Set2"][:3]
     fig, ax = plt.subplots(
         figsize=(8, 8),
@@ -348,8 +285,6 @@ def error_rate(
     ax.set_title(f'Error Rate Experiment with {circuit_depth} circuit depth')
 
     ax.set_xscale('log', base=10)
-    # ax.set_xticks(RATES)
-    # ax.set_xticklabels(list(map(str, RATES)))
 
     ax.legend()
     ax.grid(True, which='both', ls='--', alpha=0.6)
@@ -372,7 +307,7 @@ def circuit_depth(
     verbose = 1
     log_qubits = 1
 
-    FOLDER_NAME = f"circuit-depth-ec{error_correct}-p{int(p_error * 1000)}"
+    FOLDER_NAME = f"circuit-depth-ec{error_correct}-p{int(p_error * 100000)}"
 
     # For storing results
     results = []
@@ -467,7 +402,7 @@ def circuit_depth(
         writer.writerow(header)
         writer.writerows(results)
 
-    # Save figure
+    # Create figure
     plot_colors = color_sequences["Set2"][:3]
     fig, ax = plt.subplots(
         figsize=(8, 8),
@@ -498,11 +433,9 @@ def circuit_depth(
     return
 
 def snake(verbose: int, samples: int):
-    verbose = 0
 
     log_qubits = 1
     p_error = 0.1
-    # snake_length = 2
 
     # Prepare snake circuit
     for snake_length in [2, 4, 8, 16, 32, 64, 128, 256]:
@@ -555,13 +488,10 @@ def snake(verbose: int, samples: int):
             with open(path, "w") as f:
                 qasm3.dump(circuit, f)
 
-        # Prepare noise models
+        # Prepare noise models for noise on data qubits only
         nm = build_x_noise_model(p_error=p_error, qubits=list(range(log_qubits)))
         ec_nm = build_x_noise_model(p_error=p_error, qubits=list(range(log_qubits*3)))
         ec_ec_nm = build_x_noise_model(p_error=p_error, qubits=list(range(log_qubits*3*3)))
-        # nm = build_x_noise_model(p_error=p_error)
-        # ec_nm = build_x_noise_model(p_error=p_error)
-        # ec_ec_nm = build_x_noise_model(p_error=p_error)
 
         # Perform simulations
         print("STARTING SIMULATIONS")
