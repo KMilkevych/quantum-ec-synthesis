@@ -2,7 +2,7 @@
 import argparse
 from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS, EXPERIMENT_KINDS
 
-from experiment import circuit_depth, error_rate, correction_frequency
+from experiment import circuit_depth, error_rate, correction_frequency, hellinger
 
 from simulate import simulate
 from generate import generate
@@ -172,6 +172,12 @@ def main():
         type=int,
         default=1000
     )
+    experiment_parser.add_argument(
+        "-f",
+        "--folder",
+        help="Folder containing circuits to use for CIRCUITS experiment",
+        type=str,
+    )
 
     # Parse arguments and run desired functionality
     args = parser.parse_args()
@@ -240,6 +246,14 @@ def main():
                         samples=args.samples,
                         p_error=args.p_error,
                         circuit_depth=args.circuit_depth
+                    )
+                case "hellinger":
+                    if not args.folder:
+                        raise Exception("HELLINGER experiment requires FOLDER parameter.")
+                    hellinger(
+                        circuits_folder=args.folder,
+                        samples=args.samples,
+                        p_error=args.p_error,
                     )
                 case _:
                     raise Exception(f"Invalid experiment kind: {args.experiment}")

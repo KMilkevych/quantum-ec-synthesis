@@ -14,9 +14,195 @@ from pathlib import Path
 from qiskit import qasm3
 import csv
 
-from typing import Iterable
+from util import build_x_noise_model, build_zx_noise_model
 
-from util import build_x_noise_model
+def hellinger(
+        circuits_folder: str,
+        samples=1000,
+        p_error=0.01,
+        error_correct=30,
+):
+
+    # Load circuits from folder
+    folder: Path = Path(circuits_folder)
+    if not folder.is_dir():
+        raise Exception(f"Folder '{circuits_folder}' is not a directory.")
+
+    # Misc information
+    FOLDER_NAME = f"hellinger-{folder.name}-p{int(p_error * 100000)}-ec{error_correct}"
+
+    circuits = {}
+    for file in folder.glob("*.qasm"):
+        circuits[file.name.replace('.qasm', '')] = qasm3.load(file)
+
+    # Creating a simulator and synthesizer
+    sim = CliffordSimulator()
+
+    # Create synthesizer(s)
+    lvl1synth = SteaneSynthesizer(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+    lvl2synth = SteaneSynthesizer(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct * 7 + 11 if error_correct else 0,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+
+    # Data structures to store results
+    results = []
+
+
+    # Perform simulations for each circuits
+    for circuitname, circuit in circuits.items():
+
+        # 1. Simulate original circuit without noise
+        # 2. Simulate original circuit with noise
+        # 3. Simulate EC circuits with noise
+        # 4. Compute Hellinger distances and make plots
+
+        # Simulate without noise for baseline data
+        print(f"Simulating baseline circuit: {circuitname}")
+        baseline = sim.simulate(
+            circuit=circuit,
+            measure_register='c_dat',
+            samples=samples,
+            noise_model=None
+        )
+        print(baseline)
+
+        # Simulate with noise
+        print(f"Simulating circuit with zx noise: {circuitname}")
+        nm = build_zx_noise_model(p_error=p_error)
+        lvl0noise = sim.simulate(
+            circuit=circuit,
+            measure_register='c_dat',
+            samples=samples,
+            noise_model=nm
+        )
+        print(lvl0noise)
+
+        # Synthesize in first-level encoding and simulate
+        print(f"Synthesizing 1st level for circuit: {circuitname}")
+        lvl1circuit = lvl1synth.synthesize(circuit)
+        print(f"Simulating 1st level for circuit: {circuitname}")
+        lvl1noise = sim.simulate(
+            circuit=lvl1circuit,
+            measure_register='c_dat',
+            samples=samples,
+            noise_model=nm
+        )
+        print(lvl1noise)
+
+        # Synthesize in seceond-level encoding and simulate
+        print(f"Synthesizing 2st level for circuit: {circuitname}")
+        lvl2circuit = lvl2synth.synthesize(lvl1circuit)
+        print(f"Simulating 2st level for circuit: {circuitname}")
+        lvl2noise = sim.simulate(
+            circuit=lvl2circuit,
+            measure_register='c_dat',
+            samples=samples,
+            noise_model=nm
+        )
+        print(lvl2noise)
+
+        # Compute Hellinger distance(s)
+        def hellinger_distance(m1: dict[str, int], m2: dict[str, int]) -> float:
+
+            # Interpret samples as multinomial dist. probabilities
+            m1count = sum(m1.values())
+            m2count = sum(m2.values())
+            p1 = {k: v / m1count for k, v in m1.items()}
+            p2 = {k: v / m2count for k, v in m2.items()}
+
+            # Compute hellinger distance
+            hellinger = 0.0
+            for key in set(p1.keys()).union(set(p2.keys())):
+                v1 = 0.0 if not key in p1.keys() else p1[key]
+                v2 = 0.0 if not key in p2.keys() else p2[key]
+
+                hellinger += pow(pow(v1, 0.5) - pow(v2, 0.5), 2)
+
+            return pow(hellinger, 0.5) * pow(2, -0.5)
+
+        # Compute hellinger distances
+        h_lvl0 = hellinger_distance(baseline, lvl0noise)
+        h_lvl1 = hellinger_distance(baseline, lvl1noise)
+        h_lvl2 = hellinger_distance(baseline, lvl2noise)
+
+        # Add to global results
+        results.append([circuitname, h_lvl0, h_lvl1, h_lvl2])
+
+        # Compute measurement labels for csv and figure
+        measurement_labels = set(baseline.keys()) \
+            .union(set(lvl0noise.keys())) \
+            .union(set(lvl1noise.keys())) \
+            .union(set(lvl2noise.keys()))
+
+        measurement_labels = sorted(list(measurement_labels))
+
+        # Build csv header
+        csv_header = ["circuit"] + measurement_labels + ["hellinger-distance"]
+
+        # Build csv rows
+        csv_rows = []
+        labels = ["baseline", "lvl0", "lvl1", "lvl2"]
+        measurements = [baseline, lvl0noise, lvl1noise, lvl2noise]
+        hellinger_distances = [None, h_lvl0, h_lvl1, h_lvl2]
+
+        for name, result, hd in zip(labels, measurements, hellinger_distances):
+            row: list = [name]
+            for label in measurement_labels:
+                row.append(0 if label not in result.keys() else result[label])
+            row.append(hd)
+
+        # Save to csv file
+        data_path = Path(f"experiments/{FOLDER_NAME}/data/{circuitname}.csv")
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, "w", newline="") as csvfile:
+            writer = csv.writer(
+                csvfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+            writer.writerow(csv_header)
+            writer.writerows(csv_rows)
+
+        # Build figure
+        figure_title = f"{samples} samples with {p_error * 100}% ZX-error prob. for {circuitname}"
+        figure_colors = color_sequences["Set2"][:4]
+
+        figure = plot_histogram(
+            measurements,
+            legend=labels,
+            sort="asc",
+            figsize=(15, 12),
+            color=figure_colors,
+            title=figure_title,
+           )
+
+        # Save figure
+        figure_path = Path(f"experiments/{FOLDER_NAME}/figures/{circuitname}.png")
+        figure_path.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(figure_path)
+
+    # Save accumulated data for all circuits
+    csv_header = ["circuit"] + [f"level-{i}-hellinger-distance" for i in range(3)]
+
+    data_path = Path(f"experiments/{FOLDER_NAME}/data.csv")
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(data_path, "w", newline="") as csvfile:
+        writer = csv.writer(
+            csvfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        writer.writerow(csv_header)
+        writer.writerows(results)
+
+    return
+
 
 def correction_frequency(
         samples=1000,
