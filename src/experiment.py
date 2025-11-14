@@ -18,6 +18,7 @@ from util import build_x_noise_model, build_zx_noise_model
 
 def hellinger(
         circuits_folder: str,
+        method: str = "steane",
         samples=1000,
         p_error=0.01,
         error_correct=30,
@@ -38,15 +39,24 @@ def hellinger(
     # Creating a simulator and synthesizer
     sim = CliffordSimulator()
 
-    # Create synthesizer(s)
-    lvl1synth = SteaneSynthesizer(
+    # Prepare synthesizer
+    _synth = None
+    match (method):
+        case 'steane':
+            _synth = SteaneSynthesizer
+        case '3-bit':
+            _synth = BitFlipSynthesizer
+        case _:
+            raise Exception(f"Unrecognized synthesis method: {method}")
+
+    lvl1synth = _synth(
         barrier_labels=None,
         ec_every_x_gates=error_correct,
         parallel_ec=False,
         optimize=False,
         set_barriers=False
     )
-    lvl2synth = SteaneSynthesizer(
+    lvl2synth = _synth(
         barrier_labels=None,
         ec_every_x_gates=error_correct * 7 + 11 if error_correct else 0,
         parallel_ec=False,
@@ -208,6 +218,7 @@ def correction_frequency(
         samples=1000,
         p_error=0.01,
         circuit_depth=1024,
+        method="3-bit"
 ):
 
     # Misc information
@@ -237,15 +248,24 @@ def correction_frequency(
     for ec_freq1 in FREQ:
         for ec_freq2 in FREQ:
 
-            # Prepare encoder for 3-bit repitition code
-            synth = BitFlipSynthesizer(
+            # Prepare synthesizer
+            _synth = None
+            match (method):
+                case 'steane':
+                    _synth = SteaneSynthesizer
+                case '3-bit':
+                    _synth = BitFlipSynthesizer
+                case _:
+                    raise Exception(f"Unrecognized synthesis method: {method}")
+
+            synth = _synth(
                 barrier_labels=False,
                 ec_every_x_gates=ec_freq1,
                 parallel_ec=False,
                 optimize=False,
                 register_name_suffix='_'
                )
-            synth2 = BitFlipSynthesizer(
+            synth2 = _synth(
                 barrier_labels=False,
                 ec_every_x_gates=ec_freq2,
                 parallel_ec=False,
@@ -350,6 +370,7 @@ def error_rate(
         samples=1000,
         circuit_depth=1024,
         error_correct=30,
+        method="3-bit"
 ):
 
     # Misc information
@@ -371,15 +392,24 @@ def error_rate(
             qc.x(q)
     qc.measure(qreg, creg)
 
-    # Prepare encoder for 3-bit repitition code
-    synth = BitFlipSynthesizer(
+    # Prepare synthesizer
+    _synth = None
+    match (method):
+        case 'steane':
+            _synth = SteaneSynthesizer
+        case '3-bit':
+            _synth = BitFlipSynthesizer
+        case _:
+            raise Exception(f"Unrecognized synthesis method: {method}")
+
+    synth = _synth(
         barrier_labels=False,
         ec_every_x_gates=error_correct,
         parallel_ec=False,
         optimize=False,
         register_name_suffix='_'
        )
-    synth2 = BitFlipSynthesizer(
+    synth2 = _synth(
         barrier_labels=False,
         ec_every_x_gates=error_correct * 3 + 11,
         parallel_ec=False,
@@ -487,6 +517,7 @@ def circuit_depth(
         samples=1000,
         p_error=0.01,
         error_correct=30,
+        method="3-bit"
 ):
 
     # Misc information
@@ -513,15 +544,24 @@ def circuit_depth(
         print("GENERATED CIRCUIT")
         if verbose == 1: print(qc)
 
-        # Prepare encoder for 3-bit repitition code
-        synth = BitFlipSynthesizer(
+        # Prepare synthesizer
+        _synth = None
+        match (method):
+            case 'steane':
+                _synth = SteaneSynthesizer
+            case '3-bit':
+                _synth = BitFlipSynthesizer
+            case _:
+                raise Exception(f"Unrecognized synthesis method: {method}")
+
+        synth = _synth(
             barrier_labels=False,
             ec_every_x_gates=error_correct,
             parallel_ec=False,
             optimize=False,
             register_name_suffix='_'
            )
-        synth2 = BitFlipSynthesizer(
+        synth2 = _synth(
             barrier_labels=False,
             ec_every_x_gates=error_correct * 3 + 11,
             parallel_ec=False,

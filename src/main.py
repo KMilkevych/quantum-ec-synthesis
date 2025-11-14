@@ -130,6 +130,13 @@ def main():
         "-q", "--qubits", help="circuit size (no. logical qubits)", type=int, default=1
     )
     generate_parser.add_argument(
+        "-gc",
+        "--gate-count",
+        help="circuit size (no. logical gates)",
+        type=int,
+        default=32
+    )
+    generate_parser.add_argument(
         "-o",
         "--output",
         help="output file/directory for storing output circuits",
@@ -173,6 +180,14 @@ def main():
         default=1000
     )
     experiment_parser.add_argument(
+        "-m",
+        "--method",
+        help="synthesis method",
+        type=str,
+        choices=SYNTHESIZE_METHODS,
+        default=SYNTHESIZE_METHODS[0],
+    )
+    experiment_parser.add_argument(
         "-f",
         "--folder",
         help="Folder containing circuits to use for CIRCUITS experiment",
@@ -197,7 +212,13 @@ def main():
             )
 
         case "generate":
-            generate(args.verbose, args.kind, args.qubits, args.output)
+            generate(
+                verbose=args.verbose,
+                kind=args.kind,
+                qubits=args.qubits,
+                gate_count=args.gate_count,
+                output_file=args.output
+            )
 
         case "simulate":
             simulate(
@@ -213,39 +234,26 @@ def main():
         case "experiment":
 
             match (args.experiment):
-                case "all":
-                    circuit_depth(
-                        samples=args.samples,
-                        p_error=args.p_error,
-                        error_correct=args.error_correct
-                    )
-                    error_rate(
-                        samples=args.samples,
-                        circuit_depth=args.circuit_depth,
-                        error_correct=args.error_correct
-                    )
-                    correction_frequency(
-                        samples=args.samples,
-                        p_error=args.p_error,
-                        circuit_depth=args.circuit_depth
-                    )
                 case "circuit-depth":
                     circuit_depth(
                         samples=args.samples,
                         p_error=args.p_error,
-                        error_correct=args.error_correct
+                        error_correct=args.error_correct,
+                        method=args.method,
                     )
                 case "error-rate":
                     error_rate(
                         samples=args.samples,
                         circuit_depth=args.circuit_depth,
-                        error_correct=args.error_correct
+                        error_correct=args.error_correct,
+                        method=args.method,
                     )
                 case "correction-frequency":
                     correction_frequency(
                         samples=args.samples,
                         p_error=args.p_error,
-                        circuit_depth=args.circuit_depth
+                        circuit_depth=args.circuit_depth,
+                        method=args.method,
                     )
                 case "hellinger":
                     if not args.folder:
@@ -254,6 +262,7 @@ def main():
                         circuits_folder=args.folder,
                         samples=args.samples,
                         p_error=args.p_error,
+                        method=args.method,
                     )
                 case _:
                     raise Exception(f"Invalid experiment kind: {args.experiment}")

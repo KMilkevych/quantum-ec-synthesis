@@ -1,8 +1,20 @@
 SYNTHESIZE_METHODS: list[str] = [
     "steane",
     "3-bit",
-    # 'shor'
 ]
-CIRCUIT_KINDS: list[str] = ["all", "identity", "x", "h", "snake", "entangle"]
+CIRCUIT_KINDS: list[str] = [
+    "all",
+    "identity",
+    "x",
+    "h",
+    "snake",
+    "entangle",
+    "random-clifford",
+]
 NOISE_KINDS: list[str] = ["z", "x", "zx"]
-EXPERIMENT_KINDS: list[str] = ["all", "circuit-depth", "error-rate", "correction-frequency", "hellinger"]
+EXPERIMENT_KINDS: list[str] = [
+    "circuit-depth",
+    "error-rate",
+    "correction-frequency",
+    "hellinger",
+]

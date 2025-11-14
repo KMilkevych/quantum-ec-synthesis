@@ -2,11 +2,12 @@ from pathlib import Path
 
 from qiskit import qasm3
 from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister
+from qiskit.circuit.random import random_clifford_circuit
 
 from config import CIRCUIT_KINDS
 
 
-def generate(verbose: int, kind: str, qubits: int, output_file: str):
+def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file: str):
 
     # Decide which circuits to generate
     kinds = None
@@ -38,15 +39,20 @@ def generate(verbose: int, kind: str, qubits: int, output_file: str):
                     qc.h(i)
             case "snake":
                 for i in range(qubits):
-
-                    # Length-100 x-snake
-                    for _ in range(100):
+                    for _ in range(gate_count//2):
                         qc.x(i)
                         qc.x(i)
             case "entangle":
                 qc.h(0)
                 for i in range(1, qubits):
                     qc.cx(0, i)
+            case "random-clifford":
+                _qc = random_clifford_circuit(
+                    num_qubits=qubits,
+                    num_gates=gate_count,
+                    gates=['s', 'h', 'z', 'x'] + (['cx'] if qubits >= 2 else [])
+                )
+                qc.compose(_qc, inplace=True)
             case _:
                 raise Exception(f"Unrecognized circuit kind: {kind}")
 
