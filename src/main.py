@@ -2,7 +2,12 @@
 import argparse
 from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS, EXPERIMENT_KINDS
 
-from experiment import circuit_depth, error_rate, correction_frequency, hellinger
+from experiment import (
+    circuit_depth,
+    error_rate,
+    correction_frequency,
+    gate_count_hd
+)
 
 from simulate import simulate
 from generate import generate
@@ -255,11 +260,9 @@ def main():
                         circuit_depth=args.circuit_depth,
                         method=args.method,
                     )
-                case "hellinger":
-                    if not args.folder:
-                        raise Exception("HELLINGER experiment requires FOLDER parameter.")
-                    hellinger(
-                        circuits_folder=args.folder,
+                case "clifford-gate-count":
+                    gate_count_hd(
+                        error_correct=args.error_correct,
                         samples=args.samples,
                         p_error=args.p_error,
                         method=args.method,

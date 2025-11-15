@@ -16,5 +16,5 @@ EXPERIMENT_KINDS: list[str] = [
     "circuit-depth",
     "error-rate",
     "correction-frequency",
-    "hellinger",
+    "clifford-gate-count",
 ]

@@ -2,10 +2,13 @@ from qiskit.circuit.library import Barrier, XGate
 from qiskit.circuit import CircuitInstruction
 from synthesizer.SteaneSynthesizer import SteaneSynthesizer
 from synthesizer.BitFlipSynthesizer import BitFlipSynthesizer
+from synthesizer.Synthesizer import Synthesizer
 from simulator.CliffordSimulator import CliffordSimulator
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit.visualization import plot_histogram
 from qiskit_aer.noise import NoiseModel
+
+from qiskit.circuit.random import random_clifford_circuit
 
 import matplotlib.pyplot as plt
 from matplotlib import color_sequences
@@ -16,7 +19,232 @@ import csv
 
 from util import build_x_noise_model, build_zx_noise_model
 
-def hellinger(
+
+def _hellinger_distance(m1: dict[str, int], m2: dict[str, int]) -> float:
+
+    # Interpret samples as multinomial dist. probabilities
+    m1count = sum(m1.values())
+    m2count = sum(m2.values())
+    p1 = {k: v / m1count for k, v in m1.items()}
+    p2 = {k: v / m2count for k, v in m2.items()}
+
+    # Compute hellinger distance
+    hellinger = 0.0
+    for key in set(p1.keys()).union(set(p2.keys())):
+        v1 = 0.0 if not key in p1.keys() else p1[key]
+        v2 = 0.0 if not key in p2.keys() else p2[key]
+
+        hellinger += pow(pow(v1, 0.5) - pow(v2, 0.5), 2)
+
+    return pow(hellinger, 0.5) * pow(2, -0.5)
+
+
+def _simulate_single_circuit(
+        circuit: QuantumCircuit,
+        noise_model: NoiseModel,
+        lvl1synth: Synthesizer,
+        lvl2synth: Synthesizer,
+        samples=1000
+) -> tuple[float, float, float]:
+
+    # Creating a simulator and synthesizer
+    sim = CliffordSimulator()
+
+    # Simulate without noise for baseline data
+    print(f"Simulating baseline circuit")
+    baseline = sim.simulate(
+        circuit=circuit,
+        measure_register='c_dat',
+        samples=samples,
+        noise_model=None
+    )
+    print(baseline)
+
+    # Simulate with noise
+    print(f"Simulating circuit with zx noise")
+    lvl0noise = sim.simulate(
+        circuit=circuit,
+        measure_register='c_dat',
+        samples=samples,
+        noise_model=noise_model
+    )
+    print(lvl0noise)
+
+    # Synthesize in first-level encoding and simulate
+    print(f"Synthesizing 1st level for circuit")
+    lvl1circuit = lvl1synth.synthesize(circuit)
+    print(f"Simulating 1st level for circuit")
+    lvl1noise = sim.simulate(
+        circuit=lvl1circuit,
+        measure_register='c_dat',
+        samples=samples,
+        noise_model=noise_model
+    )
+    print(lvl1noise)
+
+    # Synthesize in seceond-level encoding and simulate
+    print(f"Synthesizing 2st level for circuit")
+    lvl2circuit = lvl2synth.synthesize(lvl1circuit)
+    print(f"Simulating 2st level for circuit")
+    lvl2noise = sim.simulate(
+        circuit=lvl2circuit,
+        measure_register='c_dat',
+        samples=samples,
+        noise_model=noise_model
+    )
+    print(lvl2noise)
+
+    # Compute hellinger distances
+    h_lvl0 = _hellinger_distance(baseline, lvl0noise)
+    h_lvl1 = _hellinger_distance(baseline, lvl1noise)
+    h_lvl2 = _hellinger_distance(baseline, lvl2noise)
+
+    # Return measured hellinger distances
+    return (h_lvl0, h_lvl1, h_lvl2)
+
+def _float_to_str(x: float) -> str:
+    return str(x).replace(".", "_")
+
+def gate_count_hd(
+        method: str = "steane",
+        samples=1000,
+        p_error=0.01,
+        error_correct=30
+):
+
+    # Misc information
+    FOLDER_NAME = f"gate-count-{method}-p{_float_to_str(p_error)}-ec{error_correct}"
+
+    # Prepare synthesizers
+    _synth = None
+    match (method):
+        case 'steane':
+            _synth = SteaneSynthesizer
+        case '3-bit':
+            _synth = BitFlipSynthesizer
+        case _:
+            raise Exception(f"Unrecognized synthesis method: {method}")
+
+    lvl1synth = _synth(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+    lvl2synth = _synth(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct * 7 + 11 if error_correct else 0,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+
+    # Prepare noise model
+    noise_model = build_x_noise_model(p_error=p_error)
+
+    # Data-structure to store results
+    results = []
+
+    # Iterate over all gate-count circuits
+    gate_counts = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+    for gate_count in gate_counts:
+
+        # This should be run over a 100 or so random circuits
+        # such that we get representative data
+
+        print(f"Running for gate count {gate_count}")
+
+        avgs = []
+        RANDOM_RUNS = 100
+        for _ in range(RANDOM_RUNS):
+
+            # Prepare circuit
+            qc = QuantumCircuit(
+                qreg := QuantumRegister(2, 'q_dat'),
+                creg := ClassicalRegister(2, 'c_dat')
+            )
+            _qc = random_clifford_circuit(
+                num_qubits=2,
+                num_gates=gate_count,
+                gates=["x", "z", "h", "s", "cx"]
+            )
+            qc.compose(_qc, inplace=True)
+            qc.measure(qreg, creg)
+
+            print("Constructed circuit:")
+            print(qc)
+
+            # Save circuit and perform experiment with this circuit
+            data_row = _simulate_single_circuit(
+                circuit=qc,
+                noise_model=noise_model,
+                lvl1synth=lvl1synth,
+                lvl2synth=lvl2synth,
+                samples=samples
+            )
+            avgs.append(data_row)
+
+        hd0s, hd1s, hd2s = zip(*avgs)
+
+        # Compute average
+        results.append([
+            gate_count,
+            sum(hd0s) / RANDOM_RUNS,
+            sum(hd1s) / RANDOM_RUNS,
+            sum(hd2s) / RANDOM_RUNS
+        ])
+
+        # Save the circuit to a file
+        # circuit_path = Path(f"experiments/{FOLDER_NAME}/circuits/clifford-{gate_count}.qasm")
+        # circuit_path.parent.mkdir(parents=True, exist_ok=True)
+        # with open(circuit_path, "w") as f:
+        #     qasm3.dump(qc, f)
+
+
+        # # Save to results
+        # results.append([gate_count, *data_row])
+
+    # Save csv file
+    csv_header = ["gate-count", "lvl0-hd", "lvl1-hd", "lvl2-hd"]
+    data_path = Path(f"experiments/{FOLDER_NAME}/data.csv")
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(data_path, "w", newline="") as csvfile:
+        writer = csv.writer(
+            csvfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        writer.writerow(csv_header)
+        writer.writerows(results)
+
+    # Prepare figure
+    plot_colors = color_sequences["Set2"][:3]
+    fig, ax = plt.subplots(
+        figsize=(8, 8),
+        sharex=True
+    )
+
+    gcs, lvl0, lvl1, lvl2 = zip(*results)
+
+    ax.plot(gcs, lvl0, label='level-0', marker="o", color=plot_colors[0])
+    ax.plot(gcs, lvl1, label='level-1', marker="s", color=plot_colors[1])
+    ax.plot(gcs, lvl2, label='level-2', marker="^", color=plot_colors[2])
+    ax.set_xlabel('Circuit size (no. gates)')
+    ax.set_ylabel('Hellinger distance')
+    ax.set_title(f'Circuit Size Experiment with {p_error} error prob.')
+
+    ax.set_xscale('log', base=2)
+    ax.legend()
+    ax.grid(True, which='both', ls='--', alpha=0.6)
+
+    figure_path = Path(f"experiments/{FOLDER_NAME}/figure.png")
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(figure_path, dpi=600)
+
+    return
+
+
+def hellinger_folder(
         circuits_folder: str,
         method: str = "steane",
         samples=1000,
@@ -121,29 +349,10 @@ def hellinger(
         )
         print(lvl2noise)
 
-        # Compute Hellinger distance(s)
-        def hellinger_distance(m1: dict[str, int], m2: dict[str, int]) -> float:
-
-            # Interpret samples as multinomial dist. probabilities
-            m1count = sum(m1.values())
-            m2count = sum(m2.values())
-            p1 = {k: v / m1count for k, v in m1.items()}
-            p2 = {k: v / m2count for k, v in m2.items()}
-
-            # Compute hellinger distance
-            hellinger = 0.0
-            for key in set(p1.keys()).union(set(p2.keys())):
-                v1 = 0.0 if not key in p1.keys() else p1[key]
-                v2 = 0.0 if not key in p2.keys() else p2[key]
-
-                hellinger += pow(pow(v1, 0.5) - pow(v2, 0.5), 2)
-
-            return pow(hellinger, 0.5) * pow(2, -0.5)
-
         # Compute hellinger distances
-        h_lvl0 = hellinger_distance(baseline, lvl0noise)
-        h_lvl1 = hellinger_distance(baseline, lvl1noise)
-        h_lvl2 = hellinger_distance(baseline, lvl2noise)
+        h_lvl0 = _hellinger_distance(baseline, lvl0noise)
+        h_lvl1 = _hellinger_distance(baseline, lvl1noise)
+        h_lvl2 = _hellinger_distance(baseline, lvl2noise)
 
         # Add to global results
         results.append([circuitname, h_lvl0, h_lvl1, h_lvl2])
