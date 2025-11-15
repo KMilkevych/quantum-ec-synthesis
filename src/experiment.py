@@ -105,6 +105,147 @@ def _simulate_single_circuit(
 def _float_to_str(x: float) -> str:
     return str(x).replace(".", "_")
 
+
+def error_rate_hd(
+        method: str = "steane",
+        samples=1000,
+        gate_count=2048,
+        error_correct=30
+):
+
+    # Misc information
+    FOLDER_NAME = f"error-rate-{method}-gc{gate_count}-ec{error_correct}"
+
+    # Prepare synthesizers
+    _synth = None
+    match (method):
+        case 'steane':
+            _synth = SteaneSynthesizer
+        case '3-bit':
+            _synth = BitFlipSynthesizer
+        case _:
+            raise Exception(f"Unrecognized synthesis method: {method}")
+
+    lvl1synth = _synth(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+    lvl2synth = _synth(
+        barrier_labels=None,
+        ec_every_x_gates=error_correct * 7 + 11 if error_correct else 0,
+        parallel_ec=False,
+        optimize=False,
+        set_barriers=False
+    )
+
+
+
+    # Data-structure to store results
+    results = []
+
+    # Iterate over all gate-count circuits
+    error_rates = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0.000005, 0.000001]
+    for error_rate in error_rates:
+
+        # This should be run over a 100 or so random circuits
+        # such that we get representative data
+
+        print(f"Running for erorr rate {error_rate}")
+
+        # Prepare noise model
+        noise_model = build_zx_noise_model(p_error=error_rate)
+
+        avgs = []
+        RANDOM_RUNS = 100
+        for _ in range(RANDOM_RUNS):
+
+            # Prepare circuit
+            qc = QuantumCircuit(
+                qreg := QuantumRegister(2, 'q_dat'),
+                creg := ClassicalRegister(2, 'c_dat')
+            )
+            _qc = random_clifford_circuit(
+                num_qubits=2,
+                num_gates=gate_count,
+                gates=["x", "z", "h", "s", "cx"]
+            )
+            qc.compose(_qc, inplace=True)
+            qc.measure(qreg, creg)
+
+            print("Constructed circuit:")
+            print(qc)
+
+            # Save circuit and perform experiment with this circuit
+            data_row = _simulate_single_circuit(
+                circuit=qc,
+                noise_model=noise_model,
+                lvl1synth=lvl1synth,
+                lvl2synth=lvl2synth,
+                samples=samples
+            )
+            avgs.append(data_row)
+
+        hd0s, hd1s, hd2s = zip(*avgs)
+
+        # Compute average
+        results.append([
+            error_rate,
+            sum(hd0s) / RANDOM_RUNS,
+            sum(hd1s) / RANDOM_RUNS,
+            sum(hd2s) / RANDOM_RUNS
+        ])
+
+        # Save the circuit to a file
+        # circuit_path = Path(f"experiments/{FOLDER_NAME}/circuits/clifford-{gate_count}.qasm")
+        # circuit_path.parent.mkdir(parents=True, exist_ok=True)
+        # with open(circuit_path, "w") as f:
+        #     qasm3.dump(qc, f)
+
+
+        # # Save to results
+        # results.append([gate_count, *data_row])
+
+    # Save csv file
+    csv_header = ["error-rate", "lvl0-hd", "lvl1-hd", "lvl2-hd"]
+    data_path = Path(f"experiments/{FOLDER_NAME}/data.csv")
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(data_path, "w", newline="") as csvfile:
+        writer = csv.writer(
+            csvfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        writer.writerow(csv_header)
+        writer.writerows(results)
+
+    # Prepare figure
+    plot_colors = color_sequences["Set2"][:3]
+    fig, ax = plt.subplots(
+        figsize=(8, 8),
+        sharex=True
+    )
+
+    ers, lvl0, lvl1, lvl2 = zip(*results)
+
+    ax.plot(ers, lvl0, label='level-0', marker="o", color=plot_colors[0])
+    ax.plot(ers, lvl1, label='level-1', marker="s", color=plot_colors[1])
+    ax.plot(ers, lvl2, label='level-2', marker="^", color=plot_colors[2])
+    ax.set_xlabel('Error Probability (%)')
+    ax.set_ylabel('Hellinger distance')
+    ax.set_title(f'Error Rate Experiment with {gate_count }circuit size.')
+
+    ax.set_xscale('log', base=10)
+    ax.legend()
+    ax.grid(True, which='both', ls='--', alpha=0.6)
+
+    figure_path = Path(f"experiments/{FOLDER_NAME}/figure.png")
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(figure_path, dpi=600)
+
+    return
+
 def gate_count_hd(
         method: str = "steane",
         samples=1000,
@@ -141,7 +282,7 @@ def gate_count_hd(
     )
 
     # Prepare noise model
-    noise_model = build_x_noise_model(p_error=p_error)
+    noise_model = build_zx_noise_model(p_error=p_error)
 
     # Data-structure to store results
     results = []
