@@ -11,12 +11,13 @@ dependencies = [
     "qiskit[qasm3-import] (>=2.2.1,<3.0.0)",
     "qiskit-aer (>=0.17.2,<0.18.0)",
     "matplotlib[colormaps] (>=3.10.7,<4.0.0)",
-    "black (>=25.9.0,<26.0.0)"
+    "black (>=25.9.0,<26.0.0)",
+    "qiskit-ibm-runtime (>=0.43.1,<0.44.0)",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest (>=8.4.2,<9.0.0)"
+    "pytest (>=8.3.3,<9.0.0)"
 ]
 
 

@@ -13,6 +13,8 @@ from qiskit._accelerate.circuit import CircuitInstruction
 
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
+# import qsynth
+
 
 class SteaneSynthesizer(Synthesizer):
     """
@@ -27,7 +29,7 @@ class SteaneSynthesizer(Synthesizer):
         parallel_ec: bool = False,
         optimize: bool = False,
         register_name_suffix: str = "_",
-        set_barriers: bool = False
+        set_barriers: bool = True
     ):
 
         # Initialize barrier labels
@@ -62,66 +64,107 @@ class SteaneSynthesizer(Synthesizer):
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Encodes logical qubit
-        qc = circuit
+        qc = QuantumCircuit(7)
+
+        qc.cx(0, 1)
+        qc.cx(0, 2)
+        qc.h(4)
+        qc.h(5)
+        qc.h(6)
+        qc.cx(6, 0)
+        qc.cx(6, 1)
+        qc.cx(6, 3)
+        qc.cx(5, 0)
+        qc.cx(5, 2)
+        qc.cx(5, 3)
+        qc.cx(4, 1)
+        qc.cx(4, 2)
+        qc.cx(4, 3)
+
+        # qc.cx(register[0], register[1])
+        # qc.cx(register[0], register[2])
+        # qc.h(register[4])
+        # qc.h(register[5])
+        # qc.h(register[6])
+        # qc.cx(register[6], register[0])
+        # qc.cx(register[6], register[1])
+        # qc.cx(register[6], register[3])
+        # qc.cx(register[5], register[0])
+        # qc.cx(register[5], register[2])
+        # qc.cx(register[5], register[3])
+        # qc.cx(register[4], register[1])
+        # qc.cx(register[4], register[2])
+        # qc.cx(register[4], register[3])
 
         if self.optimize:
-            qc = QuantumCircuit.copy_empty_like(circuit)
 
-        qc.cx(register[0], register[1])
-        qc.cx(register[0], register[2])
-        qc.h(register[4])
-        qc.h(register[5])
-        qc.h(register[6])
-        qc.cx(register[6], register[0])
-        qc.cx(register[6], register[1])
-        qc.cx(register[6], register[3])
-        qc.cx(register[5], register[0])
-        qc.cx(register[5], register[2])
-        qc.cx(register[5], register[3])
-        qc.cx(register[4], register[1])
-        qc.cx(register[4], register[2])
-        qc.cx(register[4], register[3])
-
-        if self.optimize:
-
+            pass
             # Optimize sub-circuit
-            qc = self.optimize_pass.run(qc)
+            # qc = self.optimize_pass.run(qc)
+            # _qc = qsynth.peephole_synthesis(
+            #     circuit=qc,
+            #     slicing="cnot",
+            #     metric='cx-depth_cx-count',
+            #     verbose=1,
+            #     timeout=600,
+            # ).circuit
+            # qc = _qc
 
-            # Compose sub-circuit
-            circuit.compose(qc, inplace=True)
+        # Compose sub-circuit
+        # circuit.compose(qc, inplace=True, qubits=register)
 
         return
 
     def _decode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Decodes logical qubit (reverse of encode)
-        qc = circuit
+        qc = QuantumCircuit(7)
+
+        qc.cx(4, 3)
+        qc.cx(4, 2)
+        qc.cx(4, 1)
+        qc.cx(5, 3)
+        qc.cx(5, 2)
+        qc.cx(5, 0)
+        qc.cx(6, 3)
+        qc.cx(6, 1)
+        qc.cx(6, 0)
+        qc.h(6)
+        qc.h(5)
+        qc.h(4)
+        qc.cx(0, 2)
+        qc.cx(0, 1)
+
+        # qc.cx(register[4], register[3])
+        # qc.cx(register[4], register[2])
+        # qc.cx(register[4], register[1])
+        # qc.cx(register[5], register[3])
+        # qc.cx(register[5], register[2])
+        # qc.cx(register[5], register[0])
+        # qc.cx(register[6], register[3])
+        # qc.cx(register[6], register[1])
+        # qc.cx(register[6], register[0])
+        # qc.h(register[6])
+        # qc.h(register[5])
+        # qc.h(register[4])
+        # qc.cx(register[0], register[2])
+        # qc.cx(register[0], register[1])
 
         if self.optimize:
-            qc = QuantumCircuit.copy_empty_like(circuit)
 
-        qc.cx(register[4], register[3])
-        qc.cx(register[4], register[2])
-        qc.cx(register[4], register[1])
-        qc.cx(register[5], register[3])
-        qc.cx(register[5], register[2])
-        qc.cx(register[5], register[0])
-        qc.cx(register[6], register[3])
-        qc.cx(register[6], register[1])
-        qc.cx(register[6], register[0])
-        qc.h(register[6])
-        qc.h(register[5])
-        qc.h(register[4])
-        qc.cx(register[0], register[2])
-        qc.cx(register[0], register[1])
-
-        if self.optimize:
-
+            pass
             # Optimize sub-circuit
-            qc = self.optimize_pass.run(qc)
+            # qc = self.optimize_pass.run(qc)
+            # _qc = qsynth.peephole_synthesis(
+            #     circuit=qc,
+            #     slicing="clifford",
+            #     metric='cx-depth_cx-count',
+            #     verbose=1,
+            # ).circuit
+            # qc = _qc
 
-            # Compose sub-circuit
-            circuit.compose(qc, inplace=True)
+        # Compose sub-circuit
+        circuit.compose(qc, inplace=True, qubits=register)
 
         return
 

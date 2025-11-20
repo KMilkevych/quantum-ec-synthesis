@@ -11,10 +11,16 @@ CIRCUIT_KINDS: list[str] = [
     "entangle",
     "random-clifford",
 ]
-NOISE_KINDS: list[str] = ["z", "x", "zx"]
+NOISE_KINDS: list[str] = [
+    "z",
+    "x",
+    "zx",
+    "superconductor",
+]
 EXPERIMENT_KINDS: list[str] = [
     "circuit-depth",
     "error-rate",
     "correction-frequency",
     "clifford-gate-count",
+    "clifford-error-rate",
 ]

@@ -11,7 +11,8 @@ from simulator.CliffordSimulator import CliffordSimulator
 from util import (
     build_z_noise_model,
     build_x_noise_model,
-    build_zx_noise_model
+    build_zx_noise_model,
+    build_superconductor_noise_model
 )
 
 
@@ -52,6 +53,9 @@ def simulate(
 
             case 'zx':
                 nm = build_zx_noise_model(noise_amplitude)
+
+            case 'superconductor':
+                nm = build_superconductor_noise_model()
 
             case _:
                 raise Exception(f"Unexpected noise type: {noise_type}")

@@ -6,7 +6,8 @@ from experiment import (
     circuit_depth,
     error_rate,
     correction_frequency,
-    gate_count_hd
+    gate_count_hd,
+    error_rate_hd
 )
 
 from simulate import simulate
@@ -192,12 +193,12 @@ def main():
         choices=SYNTHESIZE_METHODS,
         default=SYNTHESIZE_METHODS[0],
     )
-    experiment_parser.add_argument(
-        "-f",
-        "--folder",
-        help="Folder containing circuits to use for CIRCUITS experiment",
-        type=str,
-    )
+    # experiment_parser.add_argument(
+    #     "-f",
+    #     "--folder",
+    #     help="Folder containing circuits to use for CIRCUITS experiment",
+    #     type=str,
+    # )
 
     # Parse arguments and run desired functionality
     args = parser.parse_args()
@@ -267,6 +268,14 @@ def main():
                         p_error=args.p_error,
                         method=args.method,
                     )
+                case "clifford-error-rate":
+                    error_rate_hd(
+                        error_correct=args.error_correct,
+                        samples=args.samples,
+                        gate_count=args.circuit_depth,
+                        method=args.method,
+                    )
+
                 case _:
                     raise Exception(f"Invalid experiment kind: {args.experiment}")
         case _:

@@ -234,7 +234,7 @@ def error_rate_hd(
     ax.plot(ers, lvl2, label='level-2', marker="^", color=plot_colors[2])
     ax.set_xlabel('Error Probability (%)')
     ax.set_ylabel('Hellinger distance')
-    ax.set_title(f'Error Rate Experiment with {gate_count }circuit size.')
+    ax.set_title(f'Error Rate Experiment with {gate_count} circuit size.')
 
     ax.set_xscale('log', base=10)
     ax.legend()
