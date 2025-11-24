@@ -45,6 +45,11 @@ def main():
         description="Perform experiments.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    other_parser = subparsers.add_parser(
+        "other",
+        description="Other stuff",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
     # Global parser arguments
     parser.add_argument(
@@ -143,6 +148,14 @@ def main():
         default=32
     )
     generate_parser.add_argument(
+        "-f",
+        "--format",
+        help="circuit size (no. logical gates)",
+        type=str,
+        choices=["qasm2", "qasm3"],
+        default="qasm3"
+    )
+    generate_parser.add_argument(
         "-o",
         "--output",
         help="output file/directory for storing output circuits",
@@ -223,7 +236,8 @@ def main():
                 kind=args.kind,
                 qubits=args.qubits,
                 gate_count=args.gate_count,
-                output_file=args.output
+                output_file=args.output,
+                use_qasm2=args.format=='qasm2'
             )
 
         case "simulate":
@@ -278,6 +292,45 @@ def main():
 
                 case _:
                     raise Exception(f"Invalid experiment kind: {args.experiment}")
+
+        case "other":
+
+            # Do other stuff..
+            import qiskit
+            from synthesizer.SteaneSynthesizer import SteaneSynthesizer
+            syn = SteaneSynthesizer(
+                ec_every_x_gates=0,
+                parallel_ec=False,
+                optimize=True,
+                set_barriers=False
+            )
+
+            from qiskit import qasm2
+            qc = qasm2.load("benchmark-circuits/clifford-4-64.qasm")
+            qc.measure(qc.qubits, qc.clbits)
+
+            qc_opt = qasm2.load("benchmark-circuits/clifford-4-64-opt.qasm")
+            qc_opt.measure(qc_opt.qubits, qc_opt.clbits)
+
+            print(qc)
+            print(qc_opt)
+            qc_ec = syn.synthesize(qc)
+            print(qc_ec)
+            qc_opt_ec = syn.synthesize(qc_opt)
+            print(qc_opt_ec)
+
+
+            # Save circuits
+            # qc.draw(output="mpl",filename="clifford-4-64.png",fold=-1)
+            # qc_opt.draw(output="mpl",filename="clifford-4-64-opt.png",fold=-1)
+            # qc_ec.draw(output="mpl",filename="clifford-4-64-ec-paged.png",fold=40)
+            # qc_opt_ec.draw(output="mpl",filename="clifford-4-64-opt-ec.png",fold=-1)
+
+            # Now do some experiments...
+            print("DOING EXPERIMENTS")
+            # Experiment on qc, qc_opt, qc_ec, qc_ec_opt
+
+
         case _:
             raise Exception(f"Invalid command: {args.command}")
 

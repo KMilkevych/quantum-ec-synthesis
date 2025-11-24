@@ -13,9 +13,6 @@ from qiskit._accelerate.circuit import CircuitInstruction
 
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
-# import qsynth
-
-
 class SteaneSynthesizer(Synthesizer):
     """
     Error-correcting code synthesizer for the 7-qubit Steane-code
@@ -98,20 +95,20 @@ class SteaneSynthesizer(Synthesizer):
 
         if self.optimize:
 
-            pass
+
             # Optimize sub-circuit
-            # qc = self.optimize_pass.run(qc)
-            # _qc = qsynth.peephole_synthesis(
-            #     circuit=qc,
-            #     slicing="cnot",
-            #     metric='cx-depth_cx-count',
-            #     verbose=1,
-            #     timeout=600,
-            # ).circuit
-            # qc = _qc
+            import qsynth
+            _qc = qsynth.peephole_synthesis(
+                circuit=qc,
+                slicing="cnot",
+                metric='cx-depth_cx-count',
+                verbose=1,
+                timeout=600,
+            ).circuit
+            qc = _qc
 
         # Compose sub-circuit
-        # circuit.compose(qc, inplace=True, qubits=register)
+        circuit.compose(qc, inplace=True, qubits=register)
 
         return
 
@@ -152,16 +149,15 @@ class SteaneSynthesizer(Synthesizer):
 
         if self.optimize:
 
-            pass
             # Optimize sub-circuit
-            # qc = self.optimize_pass.run(qc)
-            # _qc = qsynth.peephole_synthesis(
-            #     circuit=qc,
-            #     slicing="clifford",
-            #     metric='cx-depth_cx-count',
-            #     verbose=1,
-            # ).circuit
-            # qc = _qc
+            import qsynth
+            _qc = qsynth.peephole_synthesis(
+                circuit=qc,
+                slicing="cnot",
+                metric='cx-depth_cx-count',
+                verbose=1,
+            ).circuit
+            qc = _qc
 
         # Compose sub-circuit
         circuit.compose(qc, inplace=True, qubits=register)
@@ -212,6 +208,24 @@ class SteaneSynthesizer(Synthesizer):
             "0001111"
         ]
 
+
+        # Important sub-procedures
+        def optimize(qc):
+            import qsynth
+            _qc = qsynth.peephole_synthesis(
+                circuit=qc,
+                slicing="cnot",
+                metric='cx-depth_cx-count',
+                verbose=1,
+            ).circuit
+            qc = _qc
+
+        def apply(circuit, qc):
+            circuit.compose(qc, inplace=True, qubits=[*q_register, *a_register])
+
+        # Create a draft-circuit
+        qc = QuantumCircuit(7 + 3) # 7 qubits, 3 ancillas
+
         # First measure bit-flip syndromes
         for i, syndrome in enumerate(stabilizers):
             syndrome = map(int, syndrome)
@@ -220,7 +234,14 @@ class SteaneSynthesizer(Synthesizer):
             for j, c in enumerate(syndrome):
                 if c == 0:
                     continue
-                circuit.cx(q_register[j], a_register[i])
+                # circuit.cx(q_register[j], a_register[i])
+                qc.cx(j, 7 + i)
+
+        if self.optimize:
+            optimize(qc)
+
+        apply(circuit, qc)
+
 
         if self.barriers:
             circuit.barrier()
@@ -245,17 +266,26 @@ class SteaneSynthesizer(Synthesizer):
             circuit.barrier(a_register)
 
         # Measure phase-flip syndromes
+        qc = QuantumCircuit(7 + 3)
         for i, syndrome in enumerate(stabilizers):
             syndrome = map(int, syndrome)
-            circuit.h(a_register[i])
+            # circuit.h(a_register[i])
+            qc.h(7 + i)
 
             # Parse syndrome
             for j, c in enumerate(syndrome):
                 if c == 0:
                     continue
-                circuit.cx(q_register[j], a_register[i])
+                # circuit.cx(q_register[j], a_register[i])
+                qc.cx(j, 7 + i)
 
-            circuit.h(a_register[i])
+            # circuit.h(a_register[i])
+            qc.h(7 + i)
+
+        if self.optimize:
+            optimize(qc)
+
+        apply(circuit, qc)
 
         if self.barriers:
             circuit.barrier()

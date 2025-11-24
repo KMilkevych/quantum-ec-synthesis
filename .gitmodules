@@ -1,0 +1,3 @@
+[submodule "qsynth"]
+	path = qsynth
+	url = git@github.com:irfansha/Q-Synth-private.git

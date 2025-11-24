@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from qiskit import qasm3
+from qiskit import qasm3, qasm2
 from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit.random import random_clifford_circuit
 
 from config import CIRCUIT_KINDS
 
 
-def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file: str):
+def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file: str, use_qasm2=False):
 
     # Decide which circuits to generate
     kinds = None
@@ -22,10 +22,11 @@ def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file:
         if kind == "all":
             continue
 
-        qc = QuantumCircuit(
-            q_reg := QuantumRegister(qubits, "q_dat"),
-            c_reg := ClassicalRegister(qubits, "c_dat"),
-        )
+        # qc = QuantumCircuit(
+        #     q_reg := QuantumRegister(qubits, "q_dat"),
+        #     c_reg := ClassicalRegister(qubits, "c_dat"),
+        # )
+        qc = QuantumCircuit(qubits, qubits)
 
         match (kind):
 
@@ -57,7 +58,8 @@ def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file:
                 raise Exception(f"Unrecognized circuit kind: {kind}")
 
         # Add measurements
-        qc.measure(q_reg, c_reg)
+        # qc.measure(q_reg, c_reg)
+        qc.measure(qc.qubits, qc.clbits)
 
         if verbose == 1:
             print(f"GENERATED {kind}-circuit:")
@@ -74,6 +76,9 @@ def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file:
             ouf.parent.mkdir(parents=True, exist_ok=True)
 
             with open(ouf, "w") as f:
-                qasm3.dump(qc, f)
+                if use_qasm2:
+                    qasm2.dump(qc, f)
+                else:
+                    qasm3.dump(qc, f)
 
     return

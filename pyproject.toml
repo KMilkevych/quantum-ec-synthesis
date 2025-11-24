@@ -13,6 +13,7 @@ dependencies = [
     "matplotlib[colormaps] (>=3.10.7,<4.0.0)",
     "black (>=25.9.0,<26.0.0)",
     "qiskit-ibm-runtime (>=0.43.1,<0.44.0)",
+    "pylatexenc (>=2.10,<3.0)",
 ]
 
 [dependency-groups]
