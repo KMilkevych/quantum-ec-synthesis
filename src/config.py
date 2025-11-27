@@ -24,3 +24,7 @@ EXPERIMENT_KINDS: list[str] = [
     "clifford-gate-count",
     "clifford-error-rate",
 ]
+OPTIMIZERS: list[str] = [
+    "qiskit",
+    "q-synth"
+]

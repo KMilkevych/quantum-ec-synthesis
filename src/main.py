@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS, EXPERIMENT_KINDS
+from config import SYNTHESIZE_METHODS, CIRCUIT_KINDS, NOISE_KINDS, EXPERIMENT_KINDS, OPTIMIZERS
 
 from experiment import (
     circuit_depth,
@@ -85,9 +85,11 @@ def main():
         default=None,
     )
     synthesize_parser.add_argument(
-        '--optimize',
-        help="optimize code machinery",
-        action='store_true'
+        "-opt",
+        "--optimize",
+        help="optimize error-correcting machinery",
+        type=str,
+        choices=OPTIMIZERS,
     )
 
     # Simulate parser arguments
@@ -206,12 +208,6 @@ def main():
         choices=SYNTHESIZE_METHODS,
         default=SYNTHESIZE_METHODS[0],
     )
-    # experiment_parser.add_argument(
-    #     "-f",
-    #     "--folder",
-    #     help="Folder containing circuits to use for CIRCUITS experiment",
-    #     type=str,
-    # )
 
     # Parse arguments and run desired functionality
     args = parser.parse_args()
@@ -222,12 +218,12 @@ def main():
 
         case "synthesize":
             synthesize(
-                args.verbose,
-                args.input_circuit,
-                args.method,
-                args.optimize,
-                args.error_correction_frequency,
-                args.output
+                verbose=args.verbose,
+                input_circuit=args.input_circuit,
+                method=args.method,
+                optimizer=args.optimize,
+                ec_frequency=args.error_correction_frequency,
+                output_file=args.output
             )
 
         case "generate":

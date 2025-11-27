@@ -7,6 +7,8 @@ from qiskit.circuit.quantumcircuit import QubitSpecifier
 from synthesizer.Synthesizer import Synthesizer
 from synthesizer.BarrierTypes import BarrierType
 
+from optimizer.Optimizer import Optimizer
+
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister, ClassicalRegister
 from qiskit.circuit.library import ZGate, SGate
 from qiskit._accelerate.circuit import CircuitInstruction
@@ -24,7 +26,7 @@ class SteaneSynthesizer(Synthesizer):
         barrier_labels: Optional[bool] = True,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        optimize: bool = False,
+        optimizer: Optional[Optimizer] = None,
         register_name_suffix: str = "_",
         set_barriers: bool = True
     ):
@@ -47,10 +49,9 @@ class SteaneSynthesizer(Synthesizer):
         # Initialize other options
         self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
-        self.optimize = optimize
 
-        # Optimization pass
-        self.optimize_pass = generate_preset_pass_manager(optimization_level=3, basis_gates = ['cx', 'x', 'h', 's', 'z'])
+        # Save optimizer
+        self.optimizer = optimizer
 
         # Set name prefix
         self.register_name_suffix = register_name_suffix
@@ -93,19 +94,10 @@ class SteaneSynthesizer(Synthesizer):
         # qc.cx(register[4], register[2])
         # qc.cx(register[4], register[3])
 
-        if self.optimize:
+        # Optimize sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
-
-            # Optimize sub-circuit
-            import qsynth
-            _qc = qsynth.peephole_synthesis(
-                circuit=qc,
-                slicing="cnot",
-                metric='cx-depth_cx-count',
-                verbose=1,
-                timeout=600,
-            ).circuit
-            qc = _qc
 
         # Compose sub-circuit
         circuit.compose(qc, inplace=True, qubits=register)
@@ -147,17 +139,9 @@ class SteaneSynthesizer(Synthesizer):
         # qc.cx(register[0], register[2])
         # qc.cx(register[0], register[1])
 
-        if self.optimize:
-
-            # Optimize sub-circuit
-            import qsynth
-            _qc = qsynth.peephole_synthesis(
-                circuit=qc,
-                slicing="cnot",
-                metric='cx-depth_cx-count',
-                verbose=1,
-            ).circuit
-            qc = _qc
+        # Optimize sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
         # Compose sub-circuit
         circuit.compose(qc, inplace=True, qubits=register)
@@ -208,21 +192,6 @@ class SteaneSynthesizer(Synthesizer):
             "0001111"
         ]
 
-
-        # Important sub-procedures
-        def optimize(qc):
-            import qsynth
-            _qc = qsynth.peephole_synthesis(
-                circuit=qc,
-                slicing="cnot",
-                metric='cx-depth_cx-count',
-                verbose=1,
-            ).circuit
-            qc = _qc
-
-        def apply(circuit, qc):
-            circuit.compose(qc, inplace=True, qubits=[*q_register, *a_register])
-
         # Create a draft-circuit
         qc = QuantumCircuit(7 + 3) # 7 qubits, 3 ancillas
 
@@ -234,14 +203,14 @@ class SteaneSynthesizer(Synthesizer):
             for j, c in enumerate(syndrome):
                 if c == 0:
                     continue
-                # circuit.cx(q_register[j], a_register[i])
-                qc.cx(j, 7 + i)
+                qc.cx(j, 7 + i) # q-reg[j], a-reg[i]
 
-        if self.optimize:
-            optimize(qc)
+        # Optimize syndrome sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
-        apply(circuit, qc)
-
+        # Apply sub-circuit
+        circuit.compose(qc, inplace=True, qubits=[*q_register, *a_register])
 
         if self.barriers:
             circuit.barrier()
@@ -269,23 +238,22 @@ class SteaneSynthesizer(Synthesizer):
         qc = QuantumCircuit(7 + 3)
         for i, syndrome in enumerate(stabilizers):
             syndrome = map(int, syndrome)
-            # circuit.h(a_register[i])
-            qc.h(7 + i)
+            qc.h(7 + i) # a-reg[i]
 
             # Parse syndrome
             for j, c in enumerate(syndrome):
                 if c == 0:
                     continue
-                # circuit.cx(q_register[j], a_register[i])
-                qc.cx(j, 7 + i)
+                qc.cx(j, 7 + i) # q-reg[j], a-reg[i]
 
-            # circuit.h(a_register[i])
-            qc.h(7 + i)
+            qc.h(7 + i) # a-reg[i]
 
-        if self.optimize:
-            optimize(qc)
+        # Optimize syndrome sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
-        apply(circuit, qc)
+        # Apply sub-circuit
+        circuit.compose(qc, inplace=True, qubits=[*q_register, *a_register])
 
         if self.barriers:
             circuit.barrier()

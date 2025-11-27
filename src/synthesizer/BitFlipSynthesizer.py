@@ -7,6 +7,8 @@ from qiskit.circuit.quantumcircuit import QubitSpecifier
 from synthesizer.Synthesizer import Synthesizer
 from synthesizer.BarrierTypes import BarrierType
 
+from optimizer.Optimizer import Optimizer
+
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister, ClassicalRegister
 from qiskit.circuit.library import ZGate, SGate
 from qiskit._accelerate.circuit import CircuitInstruction
@@ -25,7 +27,7 @@ class BitFlipSynthesizer(Synthesizer):
         barrier_labels: Optional[bool] = True,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        optimize: bool = False,
+        optimizer: Optional[Optimizer] = None,
         register_name_suffix: str = "_",
         set_barriers: bool = False,
     ):
@@ -48,11 +50,12 @@ class BitFlipSynthesizer(Synthesizer):
         # Initialize other options
         self.ec_every_x_gates = ec_every_x_gates
         self.parallel_ec = parallel_ec
-        self.optimize = optimize
-        self.optimize_pass = generate_preset_pass_manager(optimization_level=3, basis_gates = ['cx', 'x', 'h', 's'])
 
         # Set name prefix
         self.register_name_suffix = register_name_suffix
+
+        # Store optimizer
+        self.optimizer = optimizer
 
         # Whether or not to insert artificial barriers
         self.barriers = set_barriers
@@ -60,42 +63,36 @@ class BitFlipSynthesizer(Synthesizer):
     def _encode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Encodes logical qubit
-        qc = circuit
+        qc = QuantumCircuit(3)
 
-        if self.optimize:
-            qc = QuantumCircuit.copy_empty_like(circuit)
+        # Add operations
+        qc.cx(0, 1)
+        qc.cx(0, 2)
 
-        qc.cx(register[0], register[1])
-        qc.cx(register[0], register[2])
+        # Optimize encoding sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
-        if self.optimize:
-
-            # Optimize sub-circuit
-            qc = self.optimize_pass.run(qc)
-
-            # Compose sub-circuit
-            circuit.compose(qc, inplace=True)
+        # Compose sub-circuit
+        circuit.compose(qc, inplace=True, qubits=register)
 
         return
 
     def _decode_logical_qubit(self, circuit: QuantumCircuit, register: QuantumRegister):
 
         # Decodes logical qubit (reverse of encode)
-        qc = circuit
+        qc = QuantumCircuit(3)
 
-        if self.optimize:
-            qc = QuantumCircuit.copy_empty_like(circuit)
+        # Add operations
+        qc.cx(0, 2)
+        qc.cx(0, 1)
 
-        qc.cx(register[0], register[2])
-        qc.cx(register[0], register[1])
+        # Optimize encoding sub-circuit
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
 
-        if self.optimize:
-
-            # Optimize sub-circuit
-            qc = self.optimize_pass.run(qc)
-
-            # Compose sub-circuit
-            circuit.compose(qc, inplace=True)
+        # Compose sub-circuit
+        circuit.compose(qc, inplace=True, qubits=register)
 
         return
 
@@ -135,11 +132,27 @@ class BitFlipSynthesizer(Synthesizer):
         c_register: ClassicalRegister,
     ):
 
+        # Prepare a temporary circuit
+        qc = QuantumCircuit(3 + 2)
+
         # Measure syndromes
-        circuit.cx(q_register[0], a_register[0])
-        circuit.cx(q_register[1], a_register[0])
-        circuit.cx(q_register[1], a_register[1])
-        circuit.cx(q_register[2], a_register[1])
+        qc.cx(0, 3 + 0)
+        qc.cx(1, 3 + 0)
+        qc.cx(1, 3 + 1)
+        qc.cx(2, 3 + 1)
+
+        # Optimize syndrome measurement
+        if self.optimizer:
+            qc = self.optimizer.optimize(qc)
+
+        # Compose sub-circuit
+        circuit.compose(qc, inplace=True, qubits=[*q_register, *a_register])
+
+        # Measure syndromes
+        # circuit.cx(q_register[0], a_register[0])
+        # circuit.cx(q_register[1], a_register[0])
+        # circuit.cx(q_register[1], a_register[1])
+        # circuit.cx(q_register[2], a_register[1])
 
         if self.barriers:
             circuit.barrier()

@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from qiskit import QuantumCircuit
 
+from optimizer.Optimizer import Optimizer
+
 
 class Synthesizer(ABC):
 
@@ -11,8 +13,8 @@ class Synthesizer(ABC):
         barrier_labels: Optional[bool] = None,
         ec_every_x_gates: int = 1,
         parallel_ec: bool = False,
-        optimize: bool = False,
-        register_name_suffix: str = "_"
+        optimizer: Optional[Optimizer] = None,
+        register_name_suffix: str = "_",
     ):
         pass
 

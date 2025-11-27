@@ -1,14 +1,18 @@
+from typing import Optional
 from qiskit import qasm3
 
 from synthesizer.SteaneSynthesizer import SteaneSynthesizer
 from synthesizer.BitFlipSynthesizer import BitFlipSynthesizer
+
+from optimizer.QiskitOptimizer import QiskitOptimizer
+from optimizer.QSynthOptimizer import QSynthOptimizer
 
 
 def synthesize(
         verbose: int,
         input_circuit: str,
         method: str,
-        optimize: bool,
+        optimizer: Optional[str],
         ec_frequency: int,
         output_file: str
 ):
@@ -20,17 +24,32 @@ def synthesize(
         print("INPUT CIRCUIT:")
         print(qc)
 
+    # Prepare optimizer
+    optimizer_instance = None
+    match (optimizer):
+        case None:
+            pass
+
+        case "qiskit":
+            optimizer_instance = QiskitOptimizer()
+
+        case "q-synth":
+            optimizer_instance = QSynthOptimizer()
+
+        case _:
+            raise Exception(f"Invalid optimizer: {optimizer}")
+
     # Parse method for synthesis
     synth = None
     match (method):
         case "steane":
             synth = SteaneSynthesizer(
-                optimize=optimize,
+                optimizer=optimizer_instance,
                 ec_every_x_gates=ec_frequency,
             )
         case "3-bit":
             synth = BitFlipSynthesizer(
-                optimize=optimize,
+                optimizer=optimizer_instance,
                 ec_every_x_gates=ec_frequency,
             )
         case _:
