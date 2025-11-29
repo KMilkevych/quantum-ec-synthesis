@@ -3,10 +3,14 @@
 
 [[file:banner.svg]]
 
+#+begin_src sh :exports none :session mysession
+export COLUMNS=100
+#+end_src
+
 * Usage
 To run the tool simply execute ~poetry run src/main.py~ and specify a sub-command, or run
 #+name: mainhelp
-#+begin_src sh :results output :exports both
+#+begin_src sh :results output :exports both :session mysession
 poetry run src/main.py --help
 #+end_src
 
@@ -14,8 +18,7 @@ to see usage information:
 
 #+RESULTS: mainhelp
 #+begin_example
-usage: main.py [-h] [-v {0,1}]
-               {synthesize,simulate,generate,experiment,other} ...
+usage: main.py [-h] [-v {0,1}] {synthesize,simulate,generate,experiment,other} ...
 
 Quantum Error-Correction Code Synthesis for Fault-Tolerant computation.
 
@@ -31,15 +34,14 @@ options:
 
 ** Error-Correcting Code Synthesis
 
-#+begin_src sh :results output :exports results
+#+begin_src sh :results output :exports results :session mysession
 poetry run src/main.py synthesize --help
 #+end_src
 
 #+RESULTS:
 #+begin_example
-usage: main.py synthesize [-h] [-m {steane,3-bit}]
-                          [-ecf ERROR_CORRECTION_FREQUENCY] [-o OUTPUT]
-                          [-opt {qiskit,q-synth}]
+usage: main.py synthesize [-h] [-m {steane,3-bit}] [-ecf ERROR_CORRECTION_FREQUENCY]
+                          [-o OUTPUT] [-opt {qiskit,q-synth}]
                           input_circuit
 
 Perform synthesis of Quantum Error-Correcting Codes onto existing circuits.
@@ -52,8 +54,8 @@ options:
   -m, --method {steane,3-bit}
                         synthesis method (default: steane)
   -ecf, --error-correction-frequency ERROR_CORRECTION_FREQUENCY
-                        Frequency of error-correction insertion. 0=only before
-                        each measurement. (default: 1)
+                        Frequency of error-correction insertion. 0=only before each
+                        measurement. (default: 1)
   -o, --output OUTPUT   .qasm file for storing output circuit (default: None)
   -opt, --optimize {qiskit,q-synth}
                         optimize error-correcting machinery (default: None)
@@ -61,16 +63,14 @@ options:
 
 ** Sample circuit generation
 
-#+begin_src sh :results output :exports results
+#+begin_src sh :results output :exports results :session mysession
 poetry run src/main.py generate --help
 #+end_src
 
 #+RESULTS:
 #+begin_example
-usage: main.py generate [-h]
-                        [-k {all,identity,x,h,snake,entangle,random-clifford}]
-                        [-q QUBITS] [-gc GATE_COUNT] [-f {qasm2,qasm3}]
-                        [-o OUTPUT]
+usage: main.py generate [-h] [-k {all,identity,x,h,snake,entangle,random-clifford}]
+                        [-q QUBITS] [-gc GATE_COUNT] [-f {qasm2,qasm3}] [-o OUTPUT]
 
 Generate example quantum circuits.
 
@@ -83,13 +83,12 @@ options:
                         circuit size (no. logical gates) (default: 32)
   -f, --format {qasm2,qasm3}
                         circuit size (no. logical gates) (default: qasm3)
-  -o, --output OUTPUT   output file/directory for storing output circuits
-                        (default: None)
+  -o, --output OUTPUT   output file/directory for storing output circuits (default: None)
 #+end_example
 
 ** Exact and Noisy simulation
 
-#+begin_src sh :results output :exports results
+#+begin_src sh :results output :exports results :session mysession
 poetry run src/main.py simulate --help
 #+end_src
 
@@ -111,24 +110,21 @@ options:
   -nt, --noise-type {z,x,zx,superconductor}
                         type of noise model to simulate with (default: None)
   -na, --noise-amplitude NOISE_AMPLITUDE
-                        probability of basic error in noise model (default:
-                        0.01)
-  --plot PLOT           .png file to plot simulation measurements (default:
-                        None)
-  --csv CSV             .csv file to store simulation measurements (default:
-                        None)
+                        probability of basic error in noise model (default: 0.01)
+  --plot PLOT           .png file to plot simulation measurements (default: None)
+  --csv CSV             .csv file to store simulation measurements (default: None)
 #+end_example
 
 ** Noise Experiments
 
-#+begin_src sh :results output :exports results
+#+begin_src sh :results output :exports results :session mysession
 poetry run src/main.py experiment --help
 #+end_src
 
 #+RESULTS:
 #+begin_example
-usage: main.py experiment [-h] [-p P_ERROR] [-ec ERROR_CORRECT]
-                          [-d CIRCUIT_DEPTH] [-s SAMPLES] [-m {steane,3-bit}]
+usage: main.py experiment [-h] [-p P_ERROR] [-ec ERROR_CORRECT] [-d CIRCUIT_DEPTH]
+                          [-s SAMPLES] [-m {steane,3-bit}]
                           {circuit-depth,error-rate,correction-frequency,clifford-gate-count,clifford-error-rate}
 
 Perform experiments.
