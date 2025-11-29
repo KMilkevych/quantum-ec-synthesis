@@ -1,30 +1,44 @@
 #+title: Quantum EC Synthesis (QECS)
 #+author: Kostiantyn V. Milkevych
 
+[[file:banner.svg]]
+
 * Usage
 To run the tool simply execute ~poetry run src/main.py~ and specify a sub-command, or run
-#+begin_src sh
+#+begin_src sh :results output
 poetry run src/main.py --help
 #+end_src
-to see usage information:
+
+#+RESULTS:
 #+begin_example
-usage: main.py [-h] [-v {0,1}] {synthesize,simulate,generate,experiment} ...
+usage: main.py [-h] [-v {0,1}]
+               {synthesize,simulate,generate,experiment,other} ...
 
 Quantum Error-Correction Code Synthesis for Fault-Tolerant computation.
 
 positional arguments:
-  {synthesize,simulate,generate,experiment}
+  {synthesize,simulate,generate,experiment,other}
                         Commands
 
 options:
   -h, --help            show this help message and exit
   -v, --verbose {0,1}   turn on verbose output (default: 1)
 #+end_example
+
+to see usage information:
+#+RESULTS:
+
 ** Error-Correcting Code Synthesis
+
+#+begin_src sh :results output :exports results
+poetry run src/main.py synthesize --help
+#+end_src
+
+#+RESULTS:
 #+begin_example
 usage: main.py synthesize [-h] [-m {steane,3-bit}]
                           [-ecf ERROR_CORRECTION_FREQUENCY] [-o OUTPUT]
-                          [--optimize]
+                          [-opt {qiskit,q-synth}]
                           input_circuit
 
 Perform synthesis of Quantum Error-Correcting Codes onto existing circuits.
@@ -40,29 +54,48 @@ options:
                         Frequency of error-correction insertion. 0=only before
                         each measurement. (default: 1)
   -o, --output OUTPUT   .qasm file for storing output circuit (default: None)
-  --optimize            optimize code machinery (default: False)
+  -opt, --optimize {qiskit,q-synth}
+                        optimize error-correcting machinery (default: None)
 #+end_example
 
 ** Sample circuit generation
+
+#+begin_src sh :results output :exports results
+poetry run src/main.py generate --help
+#+end_src
+
+#+RESULTS:
 #+begin_example
-usage: main.py generate [-h] [-k {all,identity,x,h,snake,entangle}]
-                        [-q QUBITS] [-o OUTPUT]
+usage: main.py generate [-h]
+                        [-k {all,identity,x,h,snake,entangle,random-clifford}]
+                        [-q QUBITS] [-gc GATE_COUNT] [-f {qasm2,qasm3}]
+                        [-o OUTPUT]
 
 Generate example quantum circuits.
 
 options:
   -h, --help            show this help message and exit
-  -k, --kind {all,identity,x,h,snake,entangle}
+  -k, --kind {all,identity,x,h,snake,entangle,random-clifford}
                         circuit to generate (default: all)
   -q, --qubits QUBITS   circuit size (no. logical qubits) (default: 1)
+  -gc, --gate-count GATE_COUNT
+                        circuit size (no. logical gates) (default: 32)
+  -f, --format {qasm2,qasm3}
+                        circuit size (no. logical gates) (default: qasm3)
   -o, --output OUTPUT   output file/directory for storing output circuits
                         (default: None)
 #+end_example
 
 ** Exact and Noisy simulation
+
+#+begin_src sh :results output :exports results
+poetry run src/main.py simulate --help
+#+end_src
+
+#+RESULTS:
 #+begin_example
-usage: main.py simulate [-h] [-s SAMPLES] [-nt {z,x,zx}] [-na NOISE_AMPLITUDE]
-                        [--plot PLOT] [--csv CSV]
+usage: main.py simulate [-h] [-s SAMPLES] [-nt {z,x,zx,superconductor}]
+                        [-na NOISE_AMPLITUDE] [--plot PLOT] [--csv CSV]
                         input_circuit [input_circuit ...]
 
 Perform exact and noisy simulations of existing circuits.
@@ -74,7 +107,7 @@ options:
   -h, --help            show this help message and exit
   -s, --samples SAMPLES
                         no. of samples/simulations (default: 1000)
-  -nt, --noise-type {z,x,zx}
+  -nt, --noise-type {z,x,zx,superconductor}
                         type of noise model to simulate with (default: None)
   -na, --noise-amplitude NOISE_AMPLITUDE
                         probability of basic error in noise model (default:
@@ -84,16 +117,23 @@ options:
   --csv CSV             .csv file to store simulation measurements (default:
                         None)
 #+end_example
+
 ** Noise Experiments
-#+begin_src
+
+#+begin_src sh :results output :exports results
+poetry run src/main.py experiment --help
+#+end_src
+
+#+RESULTS:
+#+begin_example
 usage: main.py experiment [-h] [-p P_ERROR] [-ec ERROR_CORRECT]
-                          [-d CIRCUIT_DEPTH] [-s SAMPLES]
-                          {all,circuit-depth,error-rate,correction-frequency}
+                          [-d CIRCUIT_DEPTH] [-s SAMPLES] [-m {steane,3-bit}]
+                          {circuit-depth,error-rate,correction-frequency,clifford-gate-count,clifford-error-rate}
 
 Perform experiments.
 
 positional arguments:
-  {all,circuit-depth,error-rate,correction-frequency}
+  {circuit-depth,error-rate,correction-frequency,clifford-gate-count,clifford-error-rate}
                         Which experiment to perform
 
 options:
@@ -106,7 +146,9 @@ options:
                         How deep a circuit to generate (default: 1024)
   -s, --samples SAMPLES
                         How many samples to measure (default: 1000)
-#+end_src
+  -m, --method {steane,3-bit}
+                        synthesis method (default: steane)
+#+end_example
 
 
 * Examples
@@ -114,9 +156,18 @@ options:
 
 *** Circuit Generation
 First run the ~generate~ command to generate a base circuit:
-#+begin_src
+#+begin_src sh :exports both :results output
 poetry run src/main.py generate -k x -q 1 -o circuit.qasm
 #+end_src
+
+#+RESULTS:
+: GENERATED x-circuit:
+:      ┌───┐┌─┐
+:   q: ┤ X ├┤M├
+:      └───┘└╥┘
+: c: 1/══════╩═
+:            0
+
 which gives output:
 #+begin_src
 GENERATED x-circuit:
