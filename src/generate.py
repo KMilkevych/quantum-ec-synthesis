@@ -22,11 +22,10 @@ def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file:
         if kind == "all":
             continue
 
-        # qc = QuantumCircuit(
-        #     q_reg := QuantumRegister(qubits, "q_dat"),
-        #     c_reg := ClassicalRegister(qubits, "c_dat"),
-        # )
-        qc = QuantumCircuit(qubits, qubits)
+        qc = QuantumCircuit(
+            q_reg := QuantumRegister(qubits, "q_dat"),
+            c_reg := ClassicalRegister(qubits, "c_dat"),
+        )
 
         match (kind):
 

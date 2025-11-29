@@ -5,11 +5,14 @@
 
 * Usage
 To run the tool simply execute ~poetry run src/main.py~ and specify a sub-command, or run
-#+begin_src sh :results output
+#+name: mainhelp
+#+begin_src sh :results output :exports both
 poetry run src/main.py --help
 #+end_src
 
-#+RESULTS:
+to see usage information:
+
+#+RESULTS: mainhelp
 #+begin_example
 usage: main.py [-h] [-v {0,1}]
                {synthesize,simulate,generate,experiment,other} ...
@@ -25,8 +28,6 @@ options:
   -v, --verbose {0,1}   turn on verbose output (default: 1)
 #+end_example
 
-to see usage information:
-#+RESULTS:
 
 ** Error-Correcting Code Synthesis
 
@@ -156,33 +157,29 @@ options:
 
 *** Circuit Generation
 First run the ~generate~ command to generate a base circuit:
+#+name: circuitgen
 #+begin_src sh :exports both :results output
 poetry run src/main.py generate -k x -q 1 -o circuit.qasm
 #+end_src
-
-#+RESULTS:
-: GENERATED x-circuit:
-:      ┌───┐┌─┐
-:   q: ┤ X ├┤M├
-:      └───┘└╥┘
-: c: 1/══════╩═
-:            0
-
 which gives output:
-#+begin_src
-GENERATED x-circuit:
-         ┌───┐┌─┐
-  q_dat: ┤ X ├┤M├
-         └───┘└╥┘
-c_dat: 1/══════╩═
-               0
-#+end_src
+#+RESULTS: circuitgen
+: GENERATED x-circuit:
+:          ┌───┐┌─┐
+:   q_dat: ┤ X ├┤M├
+:          └───┘└╥┘
+: c_dat: 1/══════╩═
+:                0
+
+
 *** Error-correction synthesis
 Next, encode the circuit with an error-correcting code:
-#+begin_src
+#+name: ecfexample
+#+begin_src sh :exports both :results output
 poetry run src/main.py synthesize circuit.qasm -m 3-bit -ecf 0 -o ec-circuit.qasm
 #+end_src
-#+begin_src
+
+#+RESULTS: ecfexample
+#+begin_example
 INPUT CIRCUIT:
          ┌───┐┌─┐
   q_dat: ┤ X ├┤M├
@@ -220,13 +217,17 @@ q_log0_2: ─────┤ X ├┤ X ├──┼────┼────�
 «               ┌──╨──┐                ┌──╨──┐                           0
 « c_anc: 2/═════╡ 0x2 ╞════════════════╡ 0x3 ╞═════════════════════════════
 «               └─────┘                └─────┘
-#+end_src
+#+end_example
+
 *** Noise simulation
 Lastly, perform noise simulations with the ~simulate~ command to benchmark the error-corrected circuit:
-#+begin_src
+#+name noiseexample
+#+begin_src sh :exports both :results output
 poetry run src/main.py simulate circuit.qasm ec-circuit.qasm -s 1000 -nt x -na 0.01 --plot figure.png --csv data.csv
 #+end_src
-#+begin_src
+
+#+RESULTS: noiseexample
+#+begin_example
 INPUT CIRCUIT:
          ┌───┐┌─┐
   q_dat: ┤ X ├┤M├
@@ -234,7 +235,7 @@ INPUT CIRCUIT:
 c_dat: 1/══════╩═
                0
 1000 SIMULATIONS:
-{'1': 993, '0': 7}
+{'1': 990, '0': 10}
 INPUT CIRCUIT:
                     ┌───┐                            ┌────── ┌───┐ ───────┐ »
 q_log0_0: ──■────■──┤ X ├──■─────────────────────────┤ If-0  ┤ X ├  End-0 ├─»
@@ -267,15 +268,15 @@ q_log0_2: ─────┤ X ├┤ X ├──┼────┼────�
 « c_anc: 2/═════╡ 0x2 ╞════════════════╡ 0x3 ╞═════════════════════════════
 «               └─────┘                └─────┘
 1000 SIMULATIONS:
-{'1': 944, '0': 56}
-#+end_src
+{'1': 936, '0': 64}
+#+end_example
 
 This generates a histogram over the measurements in the file =figure.png= and a data file =data.csv= storing the exact numbers:
 
 #+NAME: table
 #+CAPTION: Stored simulation data
 | circuit         |  0 |   1 |
-| circuit.qasm    |  7 | 993 |
-| ec-circuit.qasm | 56 | 944 |
+| circuit.qasm    | 10 | 990 |
+| ec-circuit.qasm | 64 | 936 |
 
 * TODO Installation
