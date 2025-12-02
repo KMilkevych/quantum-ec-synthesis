@@ -314,9 +314,9 @@ class BitFlipSynthesizer(Synthesizer):
                         label=self.barrier_labels[BarrierType.LOGICAL_GATE]
                     )
 
-                # Encode error-correction on all affected qubits
+                # Encode error-correction on all qubits
                 if self.ec_every_x_gates != 0 and ins_no % self.ec_every_x_gates == 0:
-                    for qb in logical_qubits:
+                    for qb in range(original_circuit.num_qubits):
                         self._encode_error_correction(
                             circuit,
                             circuit.qregs[qb],
