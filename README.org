@@ -218,7 +218,8 @@ q_log0_2: ─────┤ X ├┤ X ├──┼────┼────�
 
 *** Noise simulation
 Lastly, perform noise simulations with the ~simulate~ command to benchmark the error-corrected circuit:
-#+name noiseexample
+
+#+name: noiseexample
 #+begin_src sh :exports both :results output :session mysession
 poetry run src/main.py simulate circuit.qasm ec-circuit.qasm -s 1000 -nt x -na 0.01 --plot figure.png --csv data.csv
 #+end_src
