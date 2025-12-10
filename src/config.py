@@ -7,7 +7,7 @@ CIRCUIT_KINDS: list[str] = [
     "identity",
     "x",
     "h",
-    "snake",
+    "x-chain",
     "entangle",
     "random-clifford",
 ]

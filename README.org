@@ -69,22 +69,21 @@ poetry run src/main.py generate --help
 
 #+RESULTS:
 #+begin_example
-usage: main.py generate [-h] [-k {all,identity,x,h,snake,entangle,random-clifford}]
-                        [-q QUBITS] [-gc GATE_COUNT] [-f {qasm2,qasm3}] [-o OUTPUT]
+usage: main.py generate [-h] [-k {all,identity,x,h,x-chain,entangle,random-clifford}] [-q QUBITS]
+                        [-gc GATE_COUNT] [-f {qasm2,qasm3}] [-o OUTPUT]
 
 Generate example quantum circuits.
 
 options:
   -h, --help            show this help message and exit
-  -k, --kind {all,identity,x,h,snake,entangle,random-clifford}
+  -k, --kind {all,identity,x,h,x-chain,entangle,random-clifford}
                         circuit to generate (default: all)
   -q, --qubits QUBITS   circuit size (no. logical qubits) (default: 1)
   -gc, --gate-count GATE_COUNT
                         circuit size (no. logical gates) (default: 32)
   -f, --format {qasm2,qasm3}
                         circuit size (no. logical gates) (default: qasm3)
-  -o, --output OUTPUT   output file/directory for storing output circuits (default:
-                        None)
+  -o, --output OUTPUT   output file/directory for storing output circuits (default: None)
 #+end_example
 
 ** Exact and Noisy simulation

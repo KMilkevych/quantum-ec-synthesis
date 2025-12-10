@@ -293,39 +293,60 @@ def main():
 
             # Do other stuff..
             import qiskit
-            from synthesizer.SteaneSynthesizer import SteaneSynthesizer
-            syn = SteaneSynthesizer(
-                ec_every_x_gates=0,
-                parallel_ec=False,
-                optimize=True,
-                set_barriers=False
+            from qiskit import qasm3
+            from qiskit.transpiler import PassManager
+            from qiskit.transpiler.passes import OptimizeCliffords
+
+            FOLDER = "benchmark-circuits-10q"
+            qc_128 = qasm3.load(f"{FOLDER}/clifford-10-128.qasm")
+            qc_256 = qasm3.load(f"{FOLDER}/clifford-10-256.qasm")
+            qc_512 = qasm3.load(f"{FOLDER}/clifford-10-512.qasm")
+            qc_1024 = qasm3.load(f"{FOLDER}/clifford-10-1024.qasm")
+
+            # Optimize these circuits
+            from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+            opt_pass = generate_preset_pass_manager(
+                optimization_level=3,
+                basis_gates = ["cx", "x", "h", "s", "z", "measure"]
             )
 
-            from qiskit import qasm2
-            qc = qasm2.load("benchmark-circuits/clifford-4-64.qasm")
-            qc.measure(qc.qubits, qc.clbits)
+            print("CIRCUIT 128")
+            try:
+                qc_128_opt = opt_pass.run(qc_128)
+                print(qc_128_opt)
+                with open(f"{FOLDER}/clifford-10-128-opt.qasm", "w") as f:
+                    qasm3.dump(qc_128_opt, f)
+            except:
+                pass
 
-            qc_opt = qasm2.load("benchmark-circuits/clifford-4-64-opt.qasm")
-            qc_opt.measure(qc_opt.qubits, qc_opt.clbits)
+            print("CIRCUIT 256")
+            try:
+                qc_256_opt = opt_pass.run(qc_256)
+                print(qc_256_opt)
+                with open(f"{FOLDER}/clifford-10-256-opt.qasm", "w") as f:
+                    qasm3.dump(qc_256_opt, f)
+            except:
+                pass
 
-            print(qc)
-            print(qc_opt)
-            qc_ec = syn.synthesize(qc)
-            print(qc_ec)
-            qc_opt_ec = syn.synthesize(qc_opt)
-            print(qc_opt_ec)
+            print("CIRCUIT 512")
+            try:
+                qc_512_opt = opt_pass.run(qc_512)
+                print(qc_512_opt)
+                with open(f"{FOLDER}/clifford-10-512-opt.qasm", "w") as f:
+                    qasm3.dump(qc_512_opt, f)
+            except:
+                pass
 
+            print("CIRCUIT 1024")
+            try:
+                qc_1024_opt = opt_pass.run(qc_1024)
+                print(qc_1024_opt)
+                with open(f"{FOLDER}/clifford-10-1024-opt.qasm", "w") as f:
+                    qasm3.dump(qc_1024_opt, f)
+            except:
+                pass
 
-            # Save circuits
-            # qc.draw(output="mpl",filename="clifford-4-64.png",fold=-1)
-            # qc_opt.draw(output="mpl",filename="clifford-4-64-opt.png",fold=-1)
-            # qc_ec.draw(output="mpl",filename="clifford-4-64-ec-paged.png",fold=40)
-            # qc_opt_ec.draw(output="mpl",filename="clifford-4-64-opt-ec.png",fold=-1)
-
-            # Now do some experiments...
-            print("DOING EXPERIMENTS")
-            # Experiment on qc, qc_opt, qc_ec, qc_ec_opt
-
+            pass
 
         case _:
             raise Exception(f"Invalid command: {args.command}")

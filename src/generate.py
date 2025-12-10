@@ -37,7 +37,7 @@ def generate(verbose: int, kind: str, qubits: int, gate_count: int, output_file:
             case "h":
                 for i in range(qubits):
                     qc.h(i)
-            case "snake":
+            case "x-chain":
                 for i in range(qubits):
                     for _ in range(gate_count//2):
                         qc.x(i)
