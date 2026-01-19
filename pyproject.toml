@@ -1,7 +1,7 @@
 [project]
 name = "quantum-ec-synthesis"
 version = "0.1.0"
-description = "Quantum Error-Correction Code Syntehsis for Fault-Tolerant computation."
+description = "Quantum error-correcting code synthesis for fault-tolerant quantum computation."
 authors = [
     {name = "Kostiantyn Milkevych"}
 ]
@@ -14,8 +14,11 @@ dependencies = [
     "black (>=25.9.0,<26.0.0)",
     "qiskit-ibm-runtime (>=0.43.1,<0.44.0)",
     "pylatexenc (>=2.10,<3.0)",
-    "q-synth (>=5.1,<6.0)",
+    # "q-synth (>=5.1,<6.0)",
 ]
+
+[tool.poetry]
+package-mode = false
 
 [dependency-groups]
 dev = [

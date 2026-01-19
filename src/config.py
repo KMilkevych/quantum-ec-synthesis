@@ -26,5 +26,5 @@ EXPERIMENT_KINDS: list[str] = [
 ]
 OPTIMIZERS: list[str] = [
     "qiskit",
-    "q-synth"
+    # "q-synth"
 ]
