@@ -5,7 +5,7 @@ from synthesizer.SteaneSynthesizer import SteaneSynthesizer
 from synthesizer.BitFlipSynthesizer import BitFlipSynthesizer
 
 from optimizer.QiskitOptimizer import QiskitOptimizer
-from optimizer.QSynthOptimizer import QSynthOptimizer
+# from optimizer.QSynthOptimizer import QSynthOptimizer
 
 
 def synthesize(

@@ -276,4 +276,14 @@ This generates a histogram over the measurements in the file =figure.png= and a 
 | circuit.qasm    |  8 | 992 |
 | ec-circuit.qasm | 57 | 943 |
 
-* TODO Installation
+* Installation
+To install QECS clone the repository and run
+#+begin_src sh
+poetry install
+#+end_src
+this will install all required dependencies and allow you to invoke
+#+begin_example
+poetry run src/main.py
+#+end_example
+* Disabled Q-Synth functionality
+Due to an issue with Q-Synth, optimization of ec codes using Q-Synth is temporarily disabled. As such the dependency has been commented out from the =pyproject.toml= file.
